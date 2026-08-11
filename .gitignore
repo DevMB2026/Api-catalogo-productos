@@ -1,0 +1,9 @@
+node_modules/
+.env
+
+# Imágenes subidas localmente (temporal hasta Cloudinary) — se conserva la carpeta
+uploads/*
+!uploads/.gitkeep
+
+# Configuración local de Claude Code / editor
+.claude/
