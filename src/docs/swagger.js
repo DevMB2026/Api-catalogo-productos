@@ -55,7 +55,7 @@ const definition = {
         properties: {
           sku: { type: 'string' },
           color: { type: 'string', example: 'Negro' },
-          colorHex: { type: 'string', example: '#000000' },
+          composicion: { type: 'string', example: '100% algodón' },
           tallas: { type: 'array', items: { type: 'string' }, example: ['S', 'M', 'L'] },
           imagenes: { type: 'array', items: { $ref: '#/components/schemas/Image' } },
           principal: { type: 'boolean' }

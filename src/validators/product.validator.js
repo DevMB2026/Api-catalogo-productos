@@ -13,7 +13,7 @@ const imageInput = z.object({
 const variantInput = z.object({
   sku: z.string().optional(),
   color: z.string().min(1, 'El color de la variante es obligatorio'),
-  colorHex: z.string().optional(),
+  composicion: z.string().optional(),
   tallas: z.array(z.string()).optional(),
   imagenes: z.array(imageInput).optional(),
   principal: z.boolean().optional()

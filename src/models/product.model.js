@@ -18,7 +18,7 @@ const imageSchema = new mongoose.Schema({
 const variantSchema = new mongoose.Schema({
   sku: { type: String, trim: true }, // sku de la variante (opcional pero recomendado)
   color: { type: String, required: true, trim: true },
-  colorHex: { type: String, trim: true }, // ej: "#000000"
+  composicion: { type: String, trim: true }, // tela de esta variante, ej: "100% algodón", "60% algodón 40% poliéster"
   tallas: [{ type: String, trim: true }], // ej: ["S","M","L","XL"]
   // Preparado para inventario futuro: `tallas` podrá migrar a
   // [{ talla, stock, disponible }] sin romper el resto del modelo.
