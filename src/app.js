@@ -11,6 +11,12 @@ const productRoutes = require('./routes/product.routes');
 const brandRoutes = require('./routes/brand.routes');
 const categoryRoutes = require('./routes/category.routes');
 const authRoutes = require('./routes/auth.routes');
+const attributeRoutes = require('./routes/attribute.routes');
+const featureRoutes = require('./routes/feature.routes');
+const applicationRoutes = require('./routes/application.routes');
+const optionRoutes = require('./routes/option.routes');
+const optionValueRoutes = require('./routes/optionValue.routes');
+const sizeChartRoutes = require('./routes/sizeChart.routes');
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -49,6 +55,13 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/brands', brandRoutes);
 app.use('/api/v1/categories', categoryRoutes);
+// Motor dinámico (PIM)
+app.use('/api/v1/attributes', attributeRoutes);
+app.use('/api/v1/features', featureRoutes);
+app.use('/api/v1/applications', applicationRoutes);
+app.use('/api/v1/options', optionRoutes);
+app.use('/api/v1/option-values', optionValueRoutes);
+app.use('/api/v1/size-charts', sizeChartRoutes);
 
 // 404 uniforme para rutas no encontradas + manejo de errores central.
 // Deben ir DESPUÉS de todas las rutas.

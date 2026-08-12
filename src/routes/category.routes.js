@@ -6,6 +6,7 @@ const validate = require('../middleware/validate');
 const { categoryCreateSchema, categoryUpdateSchema } = require('../validators/category.validator');
 
 router.get('/', c.list);
+router.get('/:id/attribute-schema', c.getAttributeSchema); // esquema del formulario (con herencia)
 router.get('/:slug', c.getBySlug);
 
 // Escritura (solo admin autenticado).

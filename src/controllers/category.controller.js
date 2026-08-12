@@ -2,6 +2,7 @@ const Category = require('../models/category.model');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const { generateUniqueSlug } = require('../utils/slug');
+const { resolveAttributeSchema } = require('../services/attributeSchema.service');
 
 // GET /api/v1/categories   — ?parent=<id> para subcategorías; ?parent=null para raíces
 exports.list = asyncHandler(async (req, res) => {
@@ -45,4 +46,39 @@ exports.remove = asyncHandler(async (req, res) => {
   const category = await Category.findByIdAndUpdate(req.params.id, { activo: false }, { new: true });
   if (!category) throw new AppError(404, 'CATEGORY_NOT_FOUND', 'Categoría no encontrada');
   res.json({ success: true, message: 'Categoría desactivada (soft delete)', data: { _id: category._id, activo: category.activo } });
+});
+
+// GET /api/v1/categories/:id/attribute-schema  (id o slug)
+// Devuelve los atributos aplicables a la categoría, HEREDANDO los de sus padres.
+// Es el "esquema del formulario" que consume el panel para pintar el form dinámico.
+// Reglas: el nivel más específico (la propia categoría) gana sobre los ancestros;
+// se resuelve cada atributo a su definición completa; se omiten los inactivos.
+exports.getAttributeSchema = asyncHandler(async (req, res) => {
+  const param = req.params.id;
+  const byId = /^[0-9a-fA-F]{24}$/.test(param);
+  const category = await (byId ? Category.findById(param) : Category.findOne({ slug: param.toLowerCase() }));
+  if (!category) throw new AppError(404, 'CATEGORY_NOT_FOUND', 'Categoría no encontrada');
+
+  const { attributes } = await resolveAttributeSchema(category);
+
+  res.json({
+    success: true,
+    data: {
+      category: { _id: category._id, nombre: category.nombre, slug: category.slug },
+      attributes: attributes.map(({ def, required, orden, heredadoDe }) => ({
+        _id: def._id,
+        key: def.key,
+        label: def.label,
+        type: def.type,
+        unit: def.unit,
+        options: def.options,
+        validation: def.validation,
+        filterable: def.filterable,
+        group: def.group,
+        required,
+        orden,
+        heredadoDe
+      }))
+    }
+  });
 });

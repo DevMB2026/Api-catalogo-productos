@@ -1,0 +1,14 @@
+const express = require('express');
+const router = express.Router();
+const c = require('../controllers/attribute.controller');
+const { protect, requireAdmin } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { attributeCreateSchema, attributeUpdateSchema } = require('../validators/attribute.validator');
+
+router.get('/', c.list);
+router.get('/:id', c.getById);
+router.post('/', protect, requireAdmin, validate(attributeCreateSchema), c.create);
+router.patch('/:id', protect, requireAdmin, validate(attributeUpdateSchema), c.update);
+router.delete('/:id', protect, requireAdmin, c.remove);
+
+module.exports = router;

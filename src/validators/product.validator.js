@@ -1,22 +1,37 @@
 const { z } = require('zod');
 
-const mongoId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'ID inválido (debe ser un ObjectId de 24 hex)');
+const mongoId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'ID inválido (ObjectId de 24 hex)');
 
-const imageInput = z.object({
+const mediaInput = z.object({
   url: z.string().min(1),
   public_id: z.string().min(1),
   alt: z.string().optional(),
   orden: z.number().optional(),
-  principal: z.boolean().optional()
+  principal: z.boolean().optional(),
+  tipo: z.string().optional(),
+  optionValue: mongoId.optional()
+});
+
+// El VALOR del atributo se valida dinámicamente en el servicio (contra su
+// definición); aquí solo exigimos la forma { attribute, value }.
+const attributeValueInput = z.object({
+  attribute: mongoId,
+  value: z.any()
+});
+
+const productOptionInput = z.object({
+  option: mongoId,
+  values: z.array(mongoId).optional()
 });
 
 const variantInput = z.object({
-  sku: z.string().optional(),
-  color: z.string().min(1, 'El color de la variante es obligatorio'),
+  sku: z.string().optional(), // requerido se valida en el servicio (create)
+  optionValues: z.array(mongoId).optional(),
   composicion: z.string().optional(),
-  tallas: z.array(z.string()).optional(),
-  imagenes: z.array(imageInput).optional(),
-  principal: z.boolean().optional()
+  price: z.number().min(0).optional(),
+  stock: z.number().min(0).optional(),
+  media: z.array(mediaInput).optional(),
+  activo: z.boolean().optional()
 });
 
 const productCreateSchema = z.object({
@@ -26,33 +41,19 @@ const productCreateSchema = z.object({
   descripcion: z.string().optional(),
   brand: mongoId,
   category: mongoId,
-  subcategory: mongoId.optional(),
-  linea: z.string().optional(),
   sexo: z.enum(['hombre', 'mujer', 'unisex']),
-  tela: z.object({
-    material: z.string().optional(),
-    composicion: z.string().optional(),
-    tipo: z.string().optional(),
-    peso: z.string().optional(),
-    cuidados: z.array(z.string()).optional()
-  }).optional(),
-  aplicaciones: z.array(z.enum(['bordado', 'dtf', 'vinil', 'sublimado'])).optional(),
-  atributos: z.record(z.string(), z.any()).optional(),
+  attributes: z.array(attributeValueInput).optional(),
+  features: z.array(mongoId).optional(),
+  applications: z.array(mongoId).optional(),
+  options: z.array(productOptionInput).optional(),
   variants: z.array(variantInput).optional(),
-  sizeGuide: z.array(z.object({
-    talla: z.string().min(1),
-    medidas: z.record(z.string(), z.number()).optional()
-  })).optional(),
-  faq: z.array(z.object({
-    pregunta: z.string().min(1),
-    respuesta: z.string().min(1)
-  })).optional(),
-  infoAdicional: z.string().optional(),
+  sizeChart: mongoId.optional(),
+  faq: z.array(z.object({ pregunta: z.string().min(1), respuesta: z.string().min(1) })).optional(),
+  media: z.array(mediaInput).optional(),
   destacado: z.boolean().optional(),
   activo: z.boolean().optional()
 });
 
-// En update todo es opcional (PATCH parcial).
 const productUpdateSchema = productCreateSchema.partial();
 
 module.exports = { productCreateSchema, productUpdateSchema };

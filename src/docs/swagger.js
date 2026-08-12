@@ -51,14 +51,13 @@ const definition = {
       },
       Variant: {
         type: 'object',
-        required: ['color'],
         properties: {
-          sku: { type: 'string' },
-          color: { type: 'string', example: 'Negro' },
-          composicion: { type: 'string', example: '100% algodón' },
-          tallas: { type: 'array', items: { type: 'string' }, example: ['S', 'M', 'L'] },
-          imagenes: { type: 'array', items: { $ref: '#/components/schemas/Image' } },
-          principal: { type: 'boolean' }
+          sku: { type: 'string', example: 'SEG-001-NAR-M' },
+          optionValues: { type: 'array', items: { type: 'string' }, description: 'IDs de OptionValue (uno por cada eje declarado)' },
+          composicion: { type: 'string', example: '60% algodón, 40% poliéster' },
+          price: { type: 'number', example: 199 },
+          stock: { type: 'integer', example: 10 },
+          media: { type: 'array', items: { $ref: '#/components/schemas/Image' } }
         }
       },
       Product: {
@@ -72,9 +71,18 @@ const definition = {
           brand: { $ref: '#/components/schemas/BrandRef' },
           category: { $ref: '#/components/schemas/BrandRef' },
           sexo: { type: 'string', enum: ['hombre', 'mujer', 'unisex'] },
-          aplicaciones: { type: 'array', items: { type: 'string', enum: ['bordado', 'dtf', 'vinil', 'sublimado'] } },
+          attributes: { type: 'array', items: { $ref: '#/components/schemas/AttributeValue' } },
+          features: { type: 'array', items: { type: 'string' } },
+          applications: { type: 'array', items: { type: 'string' } },
           variants: { type: 'array', items: { $ref: '#/components/schemas/Variant' } },
           activo: { type: 'boolean' }
+        }
+      },
+      AttributeValue: {
+        type: 'object',
+        properties: {
+          attribute: { type: 'string', description: 'ID de AttributeDefinition' },
+          value: { description: 'Valor (tipo según la definición del atributo)' }
         }
       },
       BrandRef: {
@@ -85,16 +93,33 @@ const definition = {
         type: 'object',
         required: ['nombre', 'sku', 'brand', 'category', 'sexo'],
         properties: {
-          nombre: { type: 'string', example: 'Playera Polo Piqué' },
-          sku: { type: 'string', example: 'POL-001' },
+          nombre: { type: 'string', example: 'Chaleco de Seguridad' },
+          sku: { type: 'string', example: 'SEG-001' },
           descripcion: { type: 'string' },
-          brand: { type: 'string', description: 'ObjectId de la marca', example: '6a7b64e01af643be70d006a1' },
+          brand: { type: 'string', description: 'ObjectId de la marca' },
           category: { type: 'string', description: 'ObjectId de la categoría' },
-          subcategory: { type: 'string' },
-          linea: { type: 'string' },
           sexo: { type: 'string', enum: ['hombre', 'mujer', 'unisex'] },
-          aplicaciones: { type: 'array', items: { type: 'string', enum: ['bordado', 'dtf', 'vinil', 'sublimado'] } },
+          attributes: {
+            type: 'array',
+            description: 'Valores EAV; se validan dinámicamente contra el attribute-schema de la categoría',
+            items: { $ref: '#/components/schemas/AttributeValue' }
+          },
+          features: { type: 'array', items: { type: 'string' }, description: 'IDs de Feature' },
+          applications: { type: 'array', items: { type: 'string' }, description: 'IDs de Application' },
+          options: {
+            type: 'array',
+            description: 'Ejes de variación + valores disponibles',
+            items: {
+              type: 'object',
+              properties: {
+                option: { type: 'string', description: 'ID de Option' },
+                values: { type: 'array', items: { type: 'string' }, description: 'IDs de OptionValue' }
+              }
+            }
+          },
           variants: { type: 'array', items: { $ref: '#/components/schemas/Variant' } },
+          sizeChart: { type: 'string', description: 'ID de SizeChart (opcional)' },
+          destacado: { type: 'boolean' },
           activo: { type: 'boolean' }
         }
       },
@@ -359,6 +384,15 @@ const definition = {
         summary: 'Obtener categoría por slug',
         parameters: [{ name: 'slug', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { 200: { description: 'OK' }, 404: { $ref: '#/components/responses/NotFound' } }
+      }
+    },
+    '/categories/{id}/attribute-schema': {
+      get: {
+        tags: ['Categories'],
+        summary: 'Esquema de atributos de la categoría (con herencia)',
+        description: 'Devuelve los atributos aplicables (heredando de los padres) para pintar el formulario dinámico. Acepta id o slug.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'ID o slug de la categoría' }],
+        responses: { 200: { description: 'Esquema resuelto' }, 404: { $ref: '#/components/responses/NotFound' } }
       }
     },
     '/categories/{id}': {
