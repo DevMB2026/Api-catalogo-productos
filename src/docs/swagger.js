@@ -70,7 +70,7 @@ const definition = {
           descripcion: { type: 'string' },
           brand: { $ref: '#/components/schemas/BrandRef' },
           category: { $ref: '#/components/schemas/BrandRef' },
-          sexo: { type: 'string', enum: ['hombre', 'mujer', 'unisex'] },
+          sexo: { type: 'array', items: { type: 'string', enum: ['hombre', 'mujer', 'unisex'] } },
           attributes: { type: 'array', items: { $ref: '#/components/schemas/AttributeValue' } },
           features: { type: 'array', items: { type: 'string' } },
           applications: { type: 'array', items: { type: 'string' } },
@@ -98,7 +98,7 @@ const definition = {
           descripcion: { type: 'string' },
           brand: { type: 'string', description: 'ObjectId de la marca' },
           category: { type: 'string', description: 'ObjectId de la categoría' },
-          sexo: { type: 'string', enum: ['hombre', 'mujer', 'unisex'] },
+          sexo: { type: 'array', items: { type: 'string', enum: ['hombre', 'mujer', 'unisex'] } },
           attributes: {
             type: 'array',
             description: 'Valores EAV; se validan dinámicamente contra el attribute-schema de la categoría',

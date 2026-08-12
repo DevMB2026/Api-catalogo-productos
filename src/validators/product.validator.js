@@ -41,7 +41,7 @@ const productCreateSchema = z.object({
   descripcion: z.string().optional(),
   brand: mongoId,
   category: mongoId,
-  sexo: z.enum(['hombre', 'mujer', 'unisex']),
+  sexo: z.array(z.enum(['hombre', 'mujer', 'unisex'])).min(1, 'Indica al menos un público'),
   attributes: z.array(attributeValueInput).optional(),
   features: z.array(mongoId).optional(),
   applications: z.array(mongoId).optional(),

@@ -56,7 +56,13 @@ const productSchema = new Schema({
 
   brand: oid('Brand', { required: true, index: true }),
   category: oid('Category', { required: true, index: true }),
-  sexo: { type: String, enum: ['hombre', 'mujer', 'unisex'], required: true },
+  // Público objetivo: uno o varios ("multi"). Mongoose castea un string viejo a
+  // [string] al leer, así que los datos anteriores siguen funcionando.
+  sexo: {
+    type: [{ type: String, enum: ['hombre', 'mujer', 'unisex'] }],
+    required: true,
+    validate: { validator: (v) => Array.isArray(v) && v.length > 0, message: 'Indica al menos un público' }
+  },
 
   // --- Motor dinámico ---
   attributes: { type: [attributeValueSchema], default: [] }, // valores EAV
