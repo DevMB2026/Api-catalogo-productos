@@ -47,6 +47,13 @@ const faqSchema = new Schema({
   respuesta: { type: String, required: true }
 }, { _id: false });
 
+// Alias de SKU: el MISMO producto (single source of truth) puede tener un SKU
+// distinto en otro sitio/marca (ej. Fit Be Fresh usa TPLBFCRU-1 y Prezenza otro).
+const skuAliasSchema = new Schema({
+  sku: { type: String, required: true, uppercase: true, trim: true },
+  brand: oid('Brand')
+}, { _id: false });
+
 // ---------- Producto ----------
 const productSchema = new Schema({
   nombre: { type: String, required: true, trim: true },
@@ -54,7 +61,9 @@ const productSchema = new Schema({
   slug: { type: String, unique: true, index: true, lowercase: true, trim: true },
   descripcion: { type: String, trim: true },
 
-  brand: oid('Brand', { required: true, index: true }),
+  brand: oid('Brand', { required: true, index: true }), // marca PRINCIPAL (= brands[0]); se mantiene por compatibilidad
+  brands: { type: [oid('Brand')], default: [] }, // TODAS las marcas donde aparece el producto (SSOT multi-marca)
+  skuAliases: { type: [skuAliasSchema], default: [] }, // SKUs secundarios por sitio/marca
   category: oid('Category', { required: true, index: true }),
   // Público objetivo: uno o varios ("multi"). Mongoose castea un string viejo a
   // [string] al leer, así que los datos anteriores siguen funcionando.
@@ -81,6 +90,8 @@ const productSchema = new Schema({
 
 // ---------- Índices ----------
 productSchema.index({ brand: 1, category: 1, activo: 1 });
+productSchema.index({ brands: 1 });
+productSchema.index({ 'skuAliases.sku': 1 });
 productSchema.index({ 'attributes.attribute': 1, 'attributes.value': 1 }); // filtrado por atributo
 productSchema.index({ features: 1 });
 productSchema.index({ applications: 1 });
@@ -90,6 +101,10 @@ productSchema.index({ nombre: 'text', descripcion: 'text', sku: 'text' });
 productSchema.pre('validate', function () {
   if (!this.slug && this.nombre) {
     this.slug = slugify(this.nombre, { lower: true, strict: true, trim: true });
+  }
+  // Mantén brands sincronizado: si viene vacío, siémbralo con la marca principal.
+  if ((!this.brands || this.brands.length === 0) && this.brand) {
+    this.brands = [this.brand];
   }
 });
 

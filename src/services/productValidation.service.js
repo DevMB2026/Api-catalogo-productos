@@ -68,6 +68,11 @@ async function validateProductDynamic(body, { partial = false } = {}) {
     const b = await Brand.findById(body.brand).select('_id');
     if (!b) addErr('brand', 'La marca no existe');
   }
+  if (Array.isArray(body.brands) && body.brands.length) {
+    const ids = body.brands.filter(isId);
+    const found = await Brand.countDocuments({ _id: { $in: ids } });
+    if (found !== body.brands.length) addErr('brands', 'Alguna marca de la lista no existe');
+  }
 
   // --- Atributos (EAV) contra el esquema de la categoría ---
   if (schema && body.attributes != null) {

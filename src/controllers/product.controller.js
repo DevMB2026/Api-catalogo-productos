@@ -10,6 +10,8 @@ const { validateProductDynamic } = require('../services/productValidation.servic
 // Populate profundo para el detalle (todo lo que el catálogo/panel necesita).
 const withRefs = (query) => query
   .populate('brand', 'nombre slug')
+  .populate('brands', 'nombre slug')
+  .populate('skuAliases.brand', 'nombre slug')
   .populate('category', 'nombre slug')
   .populate('attributes.attribute')
   .populate('features')
@@ -22,6 +24,7 @@ const withRefs = (query) => query
 // Populate ligero para el listado.
 const withRefsLite = (query) => query
   .populate('brand', 'nombre slug')
+  .populate('brands', 'nombre slug')
   .populate('category', 'nombre slug');
 
 // GET /api/v1/products — filtros básicos + búsqueda + paginación
@@ -85,7 +88,9 @@ exports.getBySlug = asyncHandler(async (req, res) => {
 });
 
 exports.getBySku = asyncHandler(async (req, res) => {
-  const product = await withRefs(Product.findOne({ sku: req.params.sku.toUpperCase() }));
+  const sku = req.params.sku.toUpperCase();
+  // Matchea el SKU principal O cualquier alias (SKU secundario de otro sitio/marca).
+  const product = await withRefs(Product.findOne({ $or: [{ sku }, { 'skuAliases.sku': sku }] }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
   res.json({ success: true, data: product });
 });
