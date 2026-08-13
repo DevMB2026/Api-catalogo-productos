@@ -7,3 +7,6 @@ uploads/*
 
 # Configuración local de Claude Code / editor
 .claude/
+
+# Artefactos de scraping/migración (regenerables, no versionar)
+data/
