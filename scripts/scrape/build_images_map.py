@@ -17,8 +17,11 @@ import json
 import re
 import os
 
-RAW = os.path.join(os.path.dirname(__file__), "..", "..", "data", "prezenza-raw.json")
-OUT = os.path.join(os.path.dirname(__file__), "..", "..", "data", "prezenza-images-map.json")
+import sys
+_arg = lambda n, d: next((a.split("=", 1)[1] for a in sys.argv if a.startswith(f"--{n}=")), d)
+RAW = _arg("raw", os.path.join(os.path.dirname(__file__), "..", "..", "data", "prezenza-raw.json"))
+OUT = _arg("out", os.path.join(os.path.dirname(__file__), "..", "..", "data", "prezenza-images-map.json"))
+FIXED_BRAND = _arg("brand", None)  # si se da, se usa como brandSlug para todos
 BRAND_ALIAS = {"fit-be-fresh": "fitbefresh"}
 
 
@@ -66,7 +69,7 @@ def main():
     all_sigs = set()
 
     for p in data:
-        brand = (p.get("brands") or [{}])[0].get("slug") or ""
+        brand = FIXED_BRAND or (p.get("brands") or [{}])[0].get("slug") or ""
         brand = BRAND_ALIAS.get(brand, brand)
         colors, gallery = {}, []
 

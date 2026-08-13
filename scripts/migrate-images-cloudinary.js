@@ -28,7 +28,7 @@ const ONLY = arg('only', null) ? new Set(arg('only').split(',')) : null;
 const LIMIT = arg('limit', null) ? parseInt(arg('limit'), 10) : null;
 const WRITE_DB = process.argv.includes('--write-db') && !process.argv.includes('--no-db');
 
-const MAP = path.join(__dirname, '..', 'data', 'prezenza-images-map.json');
+const MAP = arg('map', null) ? path.resolve(arg('map')) : path.join(__dirname, '..', 'data', 'prezenza-images-map.json');
 const CACHE = path.join(__dirname, '..', 'data', 'cloudinary-uploads.json');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 

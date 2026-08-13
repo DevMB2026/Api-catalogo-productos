@@ -22,15 +22,21 @@ const WRITE = process.argv.includes('--write');
 // Mapa por slug actual -> { valor, slug?, orden, activo? }
 const TALLA = {
   xs:   { valor: 'XS',  orden: 0, activo: false }, // sembrada, sin uso -> se oculta
+  xxch: { valor: 'XXCH', orden: 0 }, // extra-extra chica (nueva de Be Fresh Security)
   xch:  { valor: 'XCH', orden: 1 },
-  s:    { valor: 'S',   orden: 2 }, // inglés, solo 1 producto de prueba
+  s:    { valor: 'S',   orden: 2, activo: false }, // inglés, oculta
   ch:   { valor: 'CH',  orden: 2 },
   m:    { valor: 'M',   orden: 3 },
+  // claves por slug viejo (inglés) Y nuevo (español) para que el reordenar sea idempotente
   l:    { valor: 'G',   slug: 'g',   orden: 4 },
+  g:    { valor: 'G',   orden: 4 },
   xl:   { valor: 'XG',  slug: 'xg',  orden: 5 },
+  xg:   { valor: 'XG',  orden: 5 },
   xxl:  { valor: 'XXL', orden: 5, activo: false }, // sembrada, sin uso -> se oculta
   '2xl': { valor: '2XG', slug: '2xg', orden: 6 },
+  '2xg': { valor: '2XG', orden: 6 },
   '3xl': { valor: '3XG', slug: '3xg', orden: 7 },
+  '3xg': { valor: '3XG', orden: 7 },
 };
 
 async function run() {

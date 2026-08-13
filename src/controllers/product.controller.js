@@ -36,8 +36,10 @@ exports.list = asyncHandler(async (req, res) => {
   else if (activo !== 'all') filtro.activo = activo === 'true';
 
   if (brand) {
+    // Filtra por MEMBRESÍA en brands[] (no solo la marca principal): así el
+    // catálogo de una firma incluye también los productos multi-marca compartidos.
     const b = await Brand.findOne({ slug: brand.toLowerCase() }).select('_id');
-    filtro.brand = b ? b._id : null;
+    filtro.brands = b ? b._id : null;
   }
   if (category) {
     const c = await Category.findOne({ slug: category.toLowerCase() }).select('_id');
