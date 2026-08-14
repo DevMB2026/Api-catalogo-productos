@@ -27,15 +27,45 @@ const withRefsLite = (query) => query
   .populate('brands', 'nombre slug')
   .populate('category', 'nombre slug');
 
+// Quita precioDistribuidor del objeto de respuesta salvo que la petición sea
+// (a) de un distribuidor autenticado (req.distribuidor, vía apiKeyAuth) o
+// (b) del propio panel admin con JWT válido (req.user.role==='admin', vía
+// protectOptional) — si no, el admin nunca vería el precio que él mismo
+// configuró al volver a abrir el producto para editarlo. Se hace sobre el
+// objeto ya obtenido, no vía .select() de Mongo, para no chocar con la
+// proyección $meta de textScore que usa la búsqueda. precioPublico nunca se
+// toca: es visible para cualquiera.
+const ocultarPrecioDistribuidorSiAplica = (doc, req) => {
+  const obj = doc.toObject ? doc.toObject() : doc;
+  const esAdmin = req.user && req.user.role === 'admin';
+  if (!req.distribuidor && !esAdmin) delete obj.precioDistribuidor;
+  return obj;
+};
+
 // GET /api/v1/products — filtros básicos + búsqueda + paginación
 exports.list = asyncHandler(async (req, res) => {
-  const { brand, category, sexo, activo, sku, slug, q, destacado } = req.query;
+  const { brand, brands, category, sexo, activo, sku, slug, q, destacado } = req.query;
   const filtro = {};
 
   if (activo === undefined) filtro.activo = true;
   else if (activo !== 'all') filtro.activo = activo === 'true';
 
-  if (brand) {
+  if (brands) {
+    // Selección múltiple (ej. checkboxes del distribuidor en /distribuidor):
+    // ?brands=marca-a,marca-b -> productos con AL MENOS UNA de esas marcas en
+    // brands[]. A diferencia de ?brand=, una marca inexistente responde 400
+    // explícito en vez de devolver silenciosamente una lista vacía.
+    const slugsPedidos = [...new Set(String(brands).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))];
+    if (slugsPedidos.length > 0) {
+      const encontradas = await Brand.find({ slug: { $in: slugsPedidos } }).select('_id slug');
+      const encontradasSet = new Set(encontradas.map((b) => b.slug));
+      const invalidas = slugsPedidos.filter((s) => !encontradasSet.has(s));
+      if (invalidas.length > 0) {
+        throw new AppError(400, 'INVALID_BRAND', `Marca(s) no válida(s): ${invalidas.join(', ')}`, { brands: invalidas });
+      }
+      filtro.brands = { $in: encontradas.map((b) => b._id) };
+    }
+  } else if (brand) {
     // Filtra por MEMBRESÍA en brands[] (no solo la marca principal): así el
     // catálogo de una firma incluye también los productos multi-marca compartidos.
     const b = await Brand.findOne({ slug: brand.toLowerCase() }).select('_id');
@@ -69,7 +99,8 @@ exports.list = asyncHandler(async (req, res) => {
   if (q) query = query.select({ score: { $meta: 'textScore' } });
   query = withRefsLite(query).sort(sort).skip(skip).limit(limit);
 
-  const [data, total] = await Promise.all([query, Product.countDocuments(filtro)]);
+  const [rows, total] = await Promise.all([query, Product.countDocuments(filtro)]);
+  const data = rows.map((r) => ocultarPrecioDistribuidorSiAplica(r, req));
   res.json({
     success: true,
     data,
@@ -80,13 +111,13 @@ exports.list = asyncHandler(async (req, res) => {
 exports.getById = asyncHandler(async (req, res) => {
   const product = await withRefs(Product.findById(req.params.id));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
-  res.json({ success: true, data: product });
+  res.json({ success: true, data: ocultarPrecioDistribuidorSiAplica(product, req) });
 });
 
 exports.getBySlug = asyncHandler(async (req, res) => {
   const product = await withRefs(Product.findOne({ slug: req.params.slug.toLowerCase() }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
-  res.json({ success: true, data: product });
+  res.json({ success: true, data: ocultarPrecioDistribuidorSiAplica(product, req) });
 });
 
 exports.getBySku = asyncHandler(async (req, res) => {
@@ -94,7 +125,7 @@ exports.getBySku = asyncHandler(async (req, res) => {
   // Matchea el SKU principal O cualquier alias (SKU secundario de otro sitio/marca).
   const product = await withRefs(Product.findOne({ $or: [{ sku }, { 'skuAliases.sku': sku }] }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
-  res.json({ success: true, data: product });
+  res.json({ success: true, data: ocultarPrecioDistribuidorSiAplica(product, req) });
 });
 
 // POST /api/v1/products  (admin) — Zod (forma) + validación dinámica (semántica)
