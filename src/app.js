@@ -11,6 +11,7 @@ const productRoutes = require('./routes/product.routes');
 const brandRoutes = require('./routes/brand.routes');
 const categoryRoutes = require('./routes/category.routes');
 const authRoutes = require('./routes/auth.routes');
+const distributorRoutes = require('./routes/distributor.routes');
 const attributeRoutes = require('./routes/attribute.routes');
 const featureRoutes = require('./routes/feature.routes');
 const applicationRoutes = require('./routes/application.routes');
@@ -52,6 +53,7 @@ app.use('/api', apiLimiter);
 
 // Rutas del catálogo (versionadas).
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/distribuidores', distributorRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/brands', brandRoutes);
 app.use('/api/v1/categories', categoryRoutes);
