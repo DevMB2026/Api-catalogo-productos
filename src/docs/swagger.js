@@ -55,7 +55,6 @@ const definition = {
           sku: { type: 'string', example: 'SEG-001-NAR-M' },
           optionValues: { type: 'array', items: { type: 'string' }, description: 'IDs de OptionValue (uno por cada eje declarado)' },
           composicion: { type: 'string', example: '60% algodón, 40% poliéster' },
-          price: { type: 'number', example: 199 },
           stock: { type: 'integer', example: 10 },
           media: { type: 'array', items: { $ref: '#/components/schemas/Image' } }
         }

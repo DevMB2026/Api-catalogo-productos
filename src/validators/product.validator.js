@@ -28,7 +28,6 @@ const variantInput = z.object({
   sku: z.string().optional(), // requerido se valida en el servicio (create)
   optionValues: z.array(mongoId).optional(),
   composicion: z.string().optional(),
-  price: z.number().min(0).optional(),
   stock: z.number().min(0).optional(),
   media: z.array(mediaInput).optional(),
   activo: z.boolean().optional()
@@ -44,8 +43,6 @@ const productCreateSchema = z.object({
   skuAliases: z.array(z.object({ sku: z.string().min(1), brand: mongoId.optional() })).optional(),
   category: mongoId,
   sexo: z.array(z.enum(['hombre', 'mujer', 'unisex'])).min(1, 'Indica al menos un público'),
-  precioPublico: z.number().min(0).optional(),
-  precioDistribuidor: z.number().min(0).optional(), // mismo precio para todos los distribuidores (v1)
   attributes: z.array(attributeValueInput).optional(),
   features: z.array(mongoId).optional(),
   applications: z.array(mongoId).optional(),

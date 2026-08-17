@@ -36,7 +36,6 @@ const variantSchema = new Schema({
   sku: { type: String, trim: true }, // único a nivel de app (no por índice, al ser embebido)
   optionValues: [oid('OptionValue')], // ej. [Negro, M]
   composicion: { type: String, trim: true }, // texto libre: "60% algodón, 40% poliéster"
-  price: { type: Number, default: 0, min: 0 },
   stock: { type: Number, default: 0, min: 0 }, // preparado para inventario
   media: [mediaSchema],
   activo: { type: Boolean, default: true }
@@ -63,13 +62,6 @@ const productSchema = new Schema({
 
   brand: oid('Brand', { required: true, index: true }), // marca PRINCIPAL (= brands[0]); se mantiene por compatibilidad
   brands: { type: [oid('Brand')], default: [] }, // TODAS las marcas donde aparece el producto (SSOT multi-marca)
-
-  // Precios de CATÁLOGO (capa nueva, independiente de variants[].price que
-  // NO se toca). Sin `default` a propósito: así se puede distinguir "nunca
-  // configurado" (ausente) de "configurado en 0" — evita mostrar $0 falso o
-  // filtrar precioDistribuidor por accidente en productos viejos.
-  precioPublico: { type: Number, min: 0 },
-  precioDistribuidor: { type: Number, min: 0 }, // igual para TODOS los distribuidores (v1); nunca viaja en respuestas públicas
   skuAliases: { type: [skuAliasSchema], default: [] }, // SKUs secundarios por sitio/marca
   category: oid('Category', { required: true, index: true }),
   // Público objetivo: uno o varios ("multi"). Mongoose castea un string viejo a

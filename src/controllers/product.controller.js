@@ -27,21 +27,6 @@ const withRefsLite = (query) => query
   .populate('brands', 'nombre slug')
   .populate('category', 'nombre slug');
 
-// Quita precioDistribuidor del objeto de respuesta salvo que la petición sea
-// (a) de un distribuidor autenticado (req.distribuidor, vía apiKeyAuth) o
-// (b) del propio panel admin con JWT válido (req.user.role==='admin', vía
-// protectOptional) — si no, el admin nunca vería el precio que él mismo
-// configuró al volver a abrir el producto para editarlo. Se hace sobre el
-// objeto ya obtenido, no vía .select() de Mongo, para no chocar con la
-// proyección $meta de textScore que usa la búsqueda. precioPublico nunca se
-// toca: es visible para cualquiera.
-const ocultarPrecioDistribuidorSiAplica = (doc, req) => {
-  const obj = doc.toObject ? doc.toObject() : doc;
-  const esAdmin = req.user && req.user.role === 'admin';
-  if (!req.distribuidor && !esAdmin) delete obj.precioDistribuidor;
-  return obj;
-};
-
 // GET /api/v1/products — filtros básicos + búsqueda + paginación
 exports.list = asyncHandler(async (req, res) => {
   const { brand, brands, category, sexo, activo, sku, slug, q, destacado } = req.query;
@@ -99,8 +84,7 @@ exports.list = asyncHandler(async (req, res) => {
   if (q) query = query.select({ score: { $meta: 'textScore' } });
   query = withRefsLite(query).sort(sort).skip(skip).limit(limit);
 
-  const [rows, total] = await Promise.all([query, Product.countDocuments(filtro)]);
-  const data = rows.map((r) => ocultarPrecioDistribuidorSiAplica(r, req));
+  const [data, total] = await Promise.all([query, Product.countDocuments(filtro)]);
   res.json({
     success: true,
     data,
@@ -111,13 +95,13 @@ exports.list = asyncHandler(async (req, res) => {
 exports.getById = asyncHandler(async (req, res) => {
   const product = await withRefs(Product.findById(req.params.id));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
-  res.json({ success: true, data: ocultarPrecioDistribuidorSiAplica(product, req) });
+  res.json({ success: true, data: product });
 });
 
 exports.getBySlug = asyncHandler(async (req, res) => {
   const product = await withRefs(Product.findOne({ slug: req.params.slug.toLowerCase() }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
-  res.json({ success: true, data: ocultarPrecioDistribuidorSiAplica(product, req) });
+  res.json({ success: true, data: product });
 });
 
 exports.getBySku = asyncHandler(async (req, res) => {
@@ -125,7 +109,7 @@ exports.getBySku = asyncHandler(async (req, res) => {
   // Matchea el SKU principal O cualquier alias (SKU secundario de otro sitio/marca).
   const product = await withRefs(Product.findOne({ $or: [{ sku }, { 'skuAliases.sku': sku }] }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
-  res.json({ success: true, data: ocultarPrecioDistribuidorSiAplica(product, req) });
+  res.json({ success: true, data: product });
 });
 
 // POST /api/v1/products  (admin) — Zod (forma) + validación dinámica (semántica)
