@@ -1,9 +1,18 @@
 const crypto = require('crypto');
 const User = require('../models/user.model');
 const ApiKey = require('../models/apiKey.model');
+const Catalog = require('../models/catalog.model');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const { createApiKeyForUser } = require('../services/apiKey.service');
+
+// Si viene `catalogo` en el body, confirma que referencia un Catalog real
+// antes de guardarlo — mismo rigor que el resto de la API con referencias.
+async function assertCatalogExists(catalogId) {
+  if (!catalogId) return; // undefined (no cambia) o null (desasignar) — nada que validar
+  const existe = await Catalog.exists({ _id: catalogId });
+  if (!existe) throw new AppError(400, 'INVALID_CATALOG', 'El catálogo indicado no existe');
+}
 
 // Endpoints de gestión de distribuidores para el PANEL ADMIN (protect+requireAdmin,
 // nunca X-API-Key). El admin solo crea la cuenta y controla la API Key — la
@@ -16,7 +25,7 @@ exports.list = asyncHandler(async (req, res) => {
   const filtro = { role: 'distribuidor' };
   if (req.query.activo !== undefined && req.query.activo !== 'all') filtro.activo = req.query.activo === 'true';
 
-  const distribuidores = await User.find(filtro).select('nombre email activo createdAt').sort({ createdAt: -1 });
+  const distribuidores = await User.find(filtro).select('nombre email activo createdAt catalogo').populate('catalogo', 'nombre slug').sort({ createdAt: -1 });
   const ids = distribuidores.map((d) => d._id);
   const apiKeys = await ApiKey.find({ user: { $in: ids } }).sort({ createdAt: -1 });
 
@@ -33,6 +42,7 @@ exports.list = asyncHandler(async (req, res) => {
     email: d.email,
     activo: d.activo,
     createdAt: d.createdAt,
+    catalogo: d.catalogo || null,
     apiKey: keyMeta(ultimaKeyPorUsuario.get(d._id.toString()))
   }));
 
@@ -41,52 +51,63 @@ exports.list = asyncHandler(async (req, res) => {
 
 // GET /api/v1/distribuidores/:id
 exports.getById = asyncHandler(async (req, res) => {
-  const user = await User.findOne({ _id: req.params.id, role: 'distribuidor' }).select('nombre email activo createdAt');
+  const user = await User.findOne({ _id: req.params.id, role: 'distribuidor' })
+    .select('nombre email activo createdAt catalogo')
+    .populate('catalogo', 'nombre slug');
   if (!user) throw new AppError(404, 'DISTRIBUTOR_NOT_FOUND', 'Distribuidor no encontrado');
 
   const apiKey = await ApiKey.findOne({ user: user._id }).sort({ createdAt: -1 });
   res.json({
     success: true,
-    data: { _id: user._id, nombre: user.nombre, email: user.email, activo: user.activo, createdAt: user.createdAt, apiKey: keyMeta(apiKey) }
+    data: {
+      _id: user._id, nombre: user.nombre, email: user.email, activo: user.activo, createdAt: user.createdAt,
+      catalogo: user.catalogo || null, apiKey: keyMeta(apiKey)
+    }
   });
 });
 
 // POST /api/v1/distribuidores — crea la cuenta y su API Key (se devuelve UNA SOLA VEZ).
 // El rol siempre se fija aquí (nunca desde req.body) — mismo principio que el registro público.
 exports.create = asyncHandler(async (req, res) => {
-  const { nombre, email } = req.body;
+  const { nombre, email, catalogo } = req.body;
 
   const existente = await User.findOne({ email: String(email).toLowerCase() }).select('_id');
   if (existente) throw new AppError(409, 'EMAIL_IN_USE', 'Ya existe una cuenta con ese correo');
+
+  await assertCatalogExists(catalogo);
 
   // Los distribuidores nunca inician sesión con contraseña (solo usan su API
   // Key) — se genera una aleatoria únicamente para satisfacer el modelo;
   // nunca se expone, nunca se usa para autenticar.
   const password = crypto.randomBytes(32).toString('hex');
-  const user = await User.create({ nombre, email, password, role: 'distribuidor' });
+  const user = await User.create({ nombre, email, password, role: 'distribuidor', catalogo: catalogo || null });
   const { raw } = await createApiKeyForUser(user._id);
 
   res.status(201).json({
     success: true,
     message: 'Distribuidor creado. Copia la API Key ahora: no volverá a mostrarse.',
     data: {
-      user: { id: user._id, nombre: user.nombre, email: user.email, activo: user.activo },
+      user: { id: user._id, nombre: user.nombre, email: user.email, activo: user.activo, catalogo: user.catalogo },
       apiKey: raw
     }
   });
 });
 
-// PATCH /api/v1/distribuidores/:id — nombre y/o activo (nunca marcas: no existen).
+// PATCH /api/v1/distribuidores/:id — nombre, activo y/o catalogo (null = desasignar).
 exports.update = asyncHandler(async (req, res) => {
   const updates = {};
   if (req.body.nombre !== undefined) updates.nombre = req.body.nombre;
   if (req.body.activo !== undefined) updates.activo = req.body.activo;
+  if (req.body.catalogo !== undefined) {
+    await assertCatalogExists(req.body.catalogo);
+    updates.catalogo = req.body.catalogo; // puede ser null explícito -> desasignar
+  }
 
   const user = await User.findOneAndUpdate(
     { _id: req.params.id, role: 'distribuidor' },
     updates,
     { new: true, runValidators: true }
-  ).select('nombre email activo createdAt');
+  ).select('nombre email activo createdAt catalogo').populate('catalogo', 'nombre slug');
   if (!user) throw new AppError(404, 'DISTRIBUTOR_NOT_FOUND', 'Distribuidor no encontrado');
 
   res.json({ success: true, data: user });

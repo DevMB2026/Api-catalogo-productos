@@ -20,12 +20,21 @@ module.exports = asyncHandler(async (req, res, next) => {
   }
 
   const hash = hashKey(raw.trim());
-  const apiKey = await ApiKey.findOne({ hash }).populate('user', 'activo nombre email role');
+  const apiKey = await ApiKey.findOne({ hash }).populate('user', 'activo nombre email role catalogo');
 
   const valido = apiKey && apiKey.activo && !apiKey.revocada && apiKey.user && apiKey.user.activo;
   if (!valido) throw new AppError(401, 'API_KEY_INVALID', 'API Key inválida o inactiva');
 
-  req.distribuidor = { userId: apiKey.user._id, apiKeyId: apiKey._id, nombre: apiKey.user.nombre, email: apiKey.user.email };
+  // catalogo viene del USUARIO (nunca de la petición): es la única fuente de
+  // verdad de qué puede ver este distribuidor. null = sin restricción, igual
+  // que el comportamiento de siempre.
+  req.distribuidor = {
+    userId: apiKey.user._id,
+    apiKeyId: apiKey._id,
+    nombre: apiKey.user.nombre,
+    email: apiKey.user.email,
+    catalogo: apiKey.user.catalogo || null
+  };
 
   // "Fire and forget": NO se espera (sin await) — no debe retrasar la
   // respuesta al distribuidor, ni fallar la petición si esta escritura falla.

@@ -10,6 +10,7 @@ const swaggerSpec = require('./docs/swagger');
 const productRoutes = require('./routes/product.routes');
 const brandRoutes = require('./routes/brand.routes');
 const categoryRoutes = require('./routes/category.routes');
+const catalogRoutes = require('./routes/catalog.routes');
 const authRoutes = require('./routes/auth.routes');
 const distributorRoutes = require('./routes/distributor.routes');
 const attributeRoutes = require('./routes/attribute.routes');
@@ -57,6 +58,7 @@ app.use('/api/v1/distribuidores', distributorRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/brands', brandRoutes);
 app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/catalogos', catalogRoutes);
 // Motor dinámico (PIM)
 app.use('/api/v1/attributes', attributeRoutes);
 app.use('/api/v1/features', featureRoutes);

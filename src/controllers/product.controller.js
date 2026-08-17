@@ -1,11 +1,65 @@
 const Product = require('../models/product.model');
 const Brand = require('../models/brand.model');
 const Category = require('../models/category.model');
+const Catalog = require('../models/catalog.model');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const { generateUniqueSlug } = require('../utils/slug');
 const { uploadBuffer, destroy, ensureConfigured } = require('../services/cloudinary.service');
 const { validateProductDynamic } = require('../services/productValidation.service');
+
+// "Todos los de su marca principal, MÁS los elegidos a mano" — misma
+// membresía brands[] que ya usa ?brand=, combinada con un $in explícito.
+// NUNCA modifica Product.brands[]: es solo una condición de lectura.
+function catalogToCondition(catalog) {
+  const or = [];
+  if (catalog.marcaPrincipal) or.push({ brands: catalog.marcaPrincipal });
+  if (catalog.productosAdicionales && catalog.productosAdicionales.length > 0) {
+    or.push({ _id: { $in: catalog.productosAdicionales } });
+  }
+  // Catálogo sin marca principal ni productos (mal configurado): no debe
+  // devolver "todo" por accidente — devuelve nada, explícitamente.
+  return or.length > 0 ? { $or: or } : { _id: null };
+}
+
+// ?catalogo=slug — libre para cualquier consumidor público (WordPress, etc.).
+async function resolveCatalogConditionBySlug(slug) {
+  const catalog = await Catalog.findOne({ slug: String(slug).toLowerCase(), activo: true });
+  if (!catalog) {
+    throw new AppError(400, 'INVALID_CATALOG', `El catálogo "${slug}" no existe`, { catalogo: slug });
+  }
+  return catalogToCondition(catalog);
+}
+
+// Catálogo ASIGNADO a un distribuidor (req.distribuidor.catalogo, resuelto en
+// apiKeyAuth desde User.catalogo — nunca desde algo que el cliente mande).
+// Si el catálogo asignado fue borrado/desactivado, falla CERRADO (no
+// devuelve todo por accidente): el distribuidor ve cero productos hasta que
+// el admin le asigne uno válido de nuevo.
+async function resolveCatalogConditionById(catalogId) {
+  const catalog = await Catalog.findOne({ _id: catalogId, activo: true });
+  if (!catalog) return { _id: null };
+  return catalogToCondition(catalog);
+}
+
+// Aplica el catálogo asignado del distribuidor (si tiene uno) por encima de
+// cualquier filtro que el cliente haya pedido — se llama SIEMPRE al final de
+// armar el filtro de list(), así ningún otro parámetro puede ampliarlo.
+async function applyDistribuidorCatalogScope(filtro, req) {
+  if (req.distribuidor && req.distribuidor.catalogo) {
+    Object.assign(filtro, await resolveCatalogConditionById(req.distribuidor.catalogo));
+  }
+}
+
+// Para getById/getBySlug/getBySku: si el distribuidor tiene catálogo
+// asignado y el producto encontrado no pertenece a él, se responde 404 (no
+// 403) — mismo principio de no revelar por qué, ya usado en toda la API.
+async function enforceDistribuidorCatalogOrThrow(product, req) {
+  if (!req.distribuidor || !req.distribuidor.catalogo) return;
+  const condition = await resolveCatalogConditionById(req.distribuidor.catalogo);
+  const pertenece = await Product.exists({ _id: product._id, ...condition });
+  if (!pertenece) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+}
 
 // Populate profundo para el detalle (todo lo que el catálogo/panel necesita).
 const withRefs = (query) => query
@@ -29,11 +83,21 @@ const withRefsLite = (query) => query
 
 // GET /api/v1/products — filtros básicos + búsqueda + paginación
 exports.list = asyncHandler(async (req, res) => {
-  const { brand, brands, category, sexo, activo, sku, slug, q, destacado } = req.query;
+  const { brand, brands, category, sexo, activo, sku, slug, q, destacado, catalogo } = req.query;
   const filtro = {};
 
   if (activo === undefined) filtro.activo = true;
   else if (activo !== 'all') filtro.activo = activo === 'true';
+
+  if (req.distribuidor && req.distribuidor.catalogo) {
+    // Distribuidor con catálogo asignado: gana SIEMPRE. Se ignora cualquier
+    // ?catalogo= que el cliente haya mandado — no puede cambiarlo por parámetro.
+    await applyDistribuidorCatalogScope(filtro, req);
+  } else if (catalogo) {
+    // ?catalogo=prezenza -> libre para cualquier consumidor público
+    // (WordPress, admin, o un distribuidor SIN catálogo asignado).
+    Object.assign(filtro, await resolveCatalogConditionBySlug(catalogo));
+  }
 
   if (brands) {
     // Selección múltiple (ej. checkboxes del distribuidor en /distribuidor):
@@ -95,12 +159,14 @@ exports.list = asyncHandler(async (req, res) => {
 exports.getById = asyncHandler(async (req, res) => {
   const product = await withRefs(Product.findById(req.params.id));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+  await enforceDistribuidorCatalogOrThrow(product, req);
   res.json({ success: true, data: product });
 });
 
 exports.getBySlug = asyncHandler(async (req, res) => {
   const product = await withRefs(Product.findOne({ slug: req.params.slug.toLowerCase() }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+  await enforceDistribuidorCatalogOrThrow(product, req);
   res.json({ success: true, data: product });
 });
 
@@ -109,6 +175,7 @@ exports.getBySku = asyncHandler(async (req, res) => {
   // Matchea el SKU principal O cualquier alias (SKU secundario de otro sitio/marca).
   const product = await withRefs(Product.findOne({ $or: [{ sku }, { 'skuAliases.sku': sku }] }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+  await enforceDistribuidorCatalogOrThrow(product, req);
   res.json({ success: true, data: product });
 });
 

@@ -8,7 +8,12 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false, minlength: 8 },
   nombre: { type: String, trim: true },
   role: { type: String, enum: ['admin', 'distribuidor'], default: 'admin' },
-  activo: { type: Boolean, default: true }
+  activo: { type: Boolean, default: true },
+  // Solo aplica a distribuidores. Sin asignar (null) = acceso al catálogo
+  // completo, igual que hoy. Un valor asignado aquí es la ÚNICA fuente de
+  // verdad de qué catálogo ve ese distribuidor — nunca algo que el propio
+  // distribuidor pueda mandar/cambiar por parámetro.
+  catalogo: { type: mongoose.Schema.Types.ObjectId, ref: 'Catalog', default: null }
 }, { timestamps: true });
 
 // Hashea la contraseña antes de guardar (solo si cambió). La validación de
