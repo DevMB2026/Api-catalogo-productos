@@ -7,6 +7,27 @@ const asyncHandler = require('../utils/asyncHandler');
 const { generateUniqueSlug } = require('../utils/slug');
 const { uploadBuffer, destroy, ensureConfigured } = require('../services/cloudinary.service');
 const { validateProductDynamic } = require('../services/productValidation.service');
+const { notificarEventoProducto } = require('../services/notification.service');
+
+// Suma el stock de todas las variantes — "sin stock" = 0 en todas.
+function stockTotal(product) {
+  return (product.variants || []).reduce((sum, v) => sum + (v.stock || 0), 0);
+}
+
+// Dispara los avisos de desactivación/agotamiento según el estado ANTES vs
+// DESPUÉS de guardar. No bloquea la respuesta al admin ni la revienta si el
+// envío de correo falla — solo lo deja registrado en el historial.
+function dispararNotificacionesSiAplica(antes, despues) {
+  const seDesactivo = antes.activo && !despues.activo;
+  const seAgoto = stockTotal(antes) > 0 && stockTotal(despues) === 0;
+
+  if (seDesactivo) {
+    notificarEventoProducto('desactivado', despues).catch((e) => console.warn('[notificaciones] error:', e.message));
+  }
+  if (seAgoto) {
+    notificarEventoProducto('agotado', despues).catch((e) => console.warn('[notificaciones] error:', e.message));
+  }
+}
 
 // "Todos los de su marca principal, MÁS los elegidos a mano" — misma
 // membresía brands[] que ya usa ?brand=, combinada con un $in explícito.
@@ -203,6 +224,7 @@ exports.update = asyncHandler(async (req, res) => {
   const updates = { ...req.body };
   if (updates.nombre && !updates.slug) updates.slug = await generateUniqueSlug(Product, updates.nombre, req.params.id);
   const product = await Product.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
+  dispararNotificacionesSiAplica(existing, product);
   const full = await withRefs(Product.findById(product._id));
   res.json({ success: true, data: full });
 });
@@ -222,8 +244,10 @@ exports.remove = asyncHandler(async (req, res) => {
     await product.deleteOne();
     return res.json({ success: true, message: 'Producto eliminado permanentemente' });
   }
+  const antes = await Product.findById(req.params.id);
+  if (!antes) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
   const product = await Product.findByIdAndUpdate(req.params.id, { activo: false }, { new: true });
-  if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+  dispararNotificacionesSiAplica(antes, product);
   res.json({ success: true, message: 'Producto desactivado (soft delete)', data: { _id: product._id, activo: product.activo } });
 });
 

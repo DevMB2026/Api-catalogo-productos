@@ -19,6 +19,7 @@ const applicationRoutes = require('./routes/application.routes');
 const optionRoutes = require('./routes/option.routes');
 const optionValueRoutes = require('./routes/optionValue.routes');
 const sizeChartRoutes = require('./routes/sizeChart.routes');
+const notificationRoutes = require('./routes/notification.routes');
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -66,6 +67,7 @@ app.use('/api/v1/applications', applicationRoutes);
 app.use('/api/v1/options', optionRoutes);
 app.use('/api/v1/option-values', optionValueRoutes);
 app.use('/api/v1/size-charts', sizeChartRoutes);
+app.use('/api/v1/notificaciones', notificationRoutes);
 
 // 404 uniforme para rutas no encontradas + manejo de errores central.
 // Deben ir DESPUÉS de todas las rutas.
