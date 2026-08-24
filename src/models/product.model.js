@@ -14,7 +14,13 @@ const mediaSchema = new Schema({
   orden: { type: Number, default: 0 },
   principal: { type: Boolean, default: false },
   tipo: { type: String, default: 'image' },
-  optionValue: oid('OptionValue') // opcional: imagen ligada a un valor (ej. color)
+  optionValue: oid('OptionValue'), // opcional: imagen ligada a un valor (ej. color)
+  // Para productos que combinan hombre+mujer: null/sin definir = la foto
+  // sirve para cualquier género (comportamiento de siempre, sin filtrar);
+  // 'hombre'/'mujer' = la foto solo se muestra cuando ese género está
+  // seleccionado. Reemplaza al heurístico anterior por nombre de archivo,
+  // que fallaba cuando el nombre traía ambas palabras a la vez.
+  sexo: { type: String, enum: ['hombre', 'mujer'], default: null }
 }, { _id: false });
 
 // Valor de un atributo dinámico (EAV): definición + valor. El tipo del valor lo

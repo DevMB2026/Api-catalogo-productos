@@ -386,3 +386,30 @@ exports.removeImage = asyncHandler(async (req, res) => {
   const full = await withRefs(Product.findById(product._id));
   res.json({ success: true, data: full });
 });
+
+// PATCH /api/v1/products/:id/images — actualiza metadata de una imagen ya
+// subida (por ahora solo "sexo", para poder mostrar la foto correcta según
+// el género seleccionado en productos que combinan hombre y mujer). No sube
+// ni borra nada — busca la imagen por public_id en galería y en variantes,
+// igual que removeImage.
+exports.updateImageMeta = asyncHandler(async (req, res) => {
+  const { public_id: publicId, sexo } = req.body;
+
+  const product = await Product.findById(req.params.id);
+  if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+
+  let target = product.media.find((m) => m.public_id === publicId);
+  if (!target) {
+    for (const variant of product.variants) {
+      target = variant.media.find((m) => m.public_id === publicId);
+      if (target) break;
+    }
+  }
+  if (!target) throw new AppError(404, 'IMAGE_NOT_FOUND', 'La imagen no existe en este producto');
+
+  target.sexo = sexo;
+
+  await product.save();
+  const full = await withRefs(Product.findById(product._id));
+  res.json({ success: true, data: full });
+});

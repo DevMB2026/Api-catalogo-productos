@@ -9,7 +9,14 @@ const mediaInput = z.object({
   orden: z.number().optional(),
   principal: z.boolean().optional(),
   tipo: z.string().optional(),
-  optionValue: mongoId.optional()
+  optionValue: mongoId.optional(),
+  sexo: z.enum(['hombre', 'mujer']).nullable().optional()
+});
+
+// PATCH /products/:id/images (actualizar metadata, no subir/borrar)
+const imageMetaUpdateSchema = z.object({
+  public_id: z.string().min(1),
+  sexo: z.enum(['hombre', 'mujer']).nullable()
 });
 
 // El VALOR del atributo se valida dinámicamente en el servicio (contra su
@@ -59,4 +66,4 @@ const productCreateSchema = z.object({
 
 const productUpdateSchema = productCreateSchema.partial();
 
-module.exports = { productCreateSchema, productUpdateSchema };
+module.exports = { productCreateSchema, productUpdateSchema, imageMetaUpdateSchema };
