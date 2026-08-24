@@ -103,7 +103,9 @@ const withRefs = (query) => query
   .populate('options.option')
   .populate('options.values')
   .populate('variants.optionValues')
-  .populate('sizeChart');
+  .populate('sizeChart')
+  .populate('sizeChartHombre')
+  .populate('sizeChartMujer');
 
 // Populate ligero para el listado.
 const withRefsLite = (query) => query

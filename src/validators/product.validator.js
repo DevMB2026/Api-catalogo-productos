@@ -49,6 +49,8 @@ const productCreateSchema = z.object({
   options: z.array(productOptionInput).optional(),
   variants: z.array(variantInput).optional(),
   sizeChart: mongoId.nullable().optional(), // null explícito = quitar la tabla asignada
+  sizeChartHombre: mongoId.nullable().optional(),
+  sizeChartMujer: mongoId.nullable().optional(),
   faq: z.array(z.object({ pregunta: z.string().min(1), respuesta: z.string().min(1) })).optional(),
   media: z.array(mediaInput).optional(),
   destacado: z.boolean().optional(),

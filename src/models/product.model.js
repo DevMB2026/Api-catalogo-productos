@@ -79,7 +79,13 @@ const productSchema = new Schema({
   options: { type: [productOptionSchema], default: [] }, // ejes + valores disponibles
   variants: { type: [variantSchema], default: [] }, // combinaciones generadas
 
-  sizeChart: oid('SizeChart'), // tabla reutilizable (opcional)
+  sizeChart: oid('SizeChart'), // tabla reutilizable (opcional) — usada cuando el producto no necesita distinguir por género
+  // Para productos que combinan hombre+mujer con cortes/medidas distintos: si
+  // ambas están asignadas, la ficha muestra la que corresponde al género que
+  // el cliente tenga seleccionado (mismo selector que ya cambia color/talla).
+  // Si solo se usa `sizeChart`, el comportamiento es igual que antes.
+  sizeChartHombre: oid('SizeChart'),
+  sizeChartMujer: oid('SizeChart'),
   faq: { type: [faqSchema], default: [] },
   media: { type: [mediaSchema], default: [] }, // galería a nivel producto
 
