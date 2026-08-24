@@ -9,6 +9,7 @@ const { productCreateSchema, productUpdateSchema } = require('../validators/prod
 // --- Lectura (pública) ---
 // Rutas específicas ANTES de /:id para que no las capture el parámetro dinámico.
 router.get('/', c.list);
+router.get('/changes', c.changes);
 router.get('/slug/:slug', c.getBySlug);
 router.get('/sku/:sku', c.getBySku);
 router.get('/:id', c.getById);

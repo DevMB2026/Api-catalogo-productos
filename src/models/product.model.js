@@ -95,6 +95,7 @@ productSchema.index({ 'attributes.attribute': 1, 'attributes.value': 1 }); // fi
 productSchema.index({ features: 1 });
 productSchema.index({ applications: 1 });
 productSchema.index({ nombre: 'text', descripcion: 'text', sku: 'text' });
+productSchema.index({ updatedAt: 1 }); // usado por GET /products/changes (sync incremental)
 
 // ---------- Slug automático ----------
 productSchema.pre('validate', function () {

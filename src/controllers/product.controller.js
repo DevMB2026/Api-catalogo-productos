@@ -7,7 +7,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { generateUniqueSlug } = require('../utils/slug');
 const { uploadBuffer, destroy, ensureConfigured } = require('../services/cloudinary.service');
 const { validateProductDynamic } = require('../services/productValidation.service');
-const { notificarEventoProducto } = require('../services/notification.service');
+const { notificarEventoProducto, dispararWebhookSiAplica } = require('../services/notification.service');
 
 // Suma el stock de todas las variantes — "sin stock" = 0 en todas.
 function stockTotal(product) {
@@ -27,6 +27,15 @@ function dispararNotificacionesSiAplica(antes, despues) {
   if (seAgoto) {
     notificarEventoProducto('agotado', despues).catch((e) => console.warn('[notificaciones] error:', e.message));
   }
+}
+
+// Fire-and-forget hacia los webhooks de distribuidores (ver
+// services/notification.service.js) — a diferencia de las notificaciones por
+// correo, este se dispara en TODA escritura (alta/edición/baja), porque el
+// objetivo es que la base de datos local del plugin quede sincronizada, no
+// solo avisar de un evento puntual.
+function dispararWebhook(product, evento) {
+  dispararWebhookSiAplica(product, evento).catch((e) => console.warn('[webhooks] error:', e.message));
 }
 
 // "Todos los de su marca principal, MÁS los elegidos a mano" — misma
@@ -102,13 +111,21 @@ const withRefsLite = (query) => query
   .populate('brands', 'nombre slug')
   .populate('category', 'nombre slug');
 
-// GET /api/v1/products — filtros básicos + búsqueda + paginación
-exports.list = asyncHandler(async (req, res) => {
+// Arma el filtro de Mongo compartido por list() y changes(): resuelve activo,
+// scope de catálogo (distribuidor o ?catalogo=), y el resto de los filtros de
+// query. `includeInactive` es para changes(), que necesita ver también los
+// productos recién desactivados (para poder purgarlos del lado del consumidor).
+async function buildProductFiltro(req, { includeInactive = false } = {}) {
   const { brand, brands, category, sexo, activo, sku, slug, q, destacado, catalogo } = req.query;
   const filtro = {};
 
-  if (activo === undefined) filtro.activo = true;
-  else if (activo !== 'all') filtro.activo = activo === 'true';
+  if (includeInactive) {
+    // changes() siempre necesita ambos estados — no hay ?activo= relevante aquí.
+  } else if (activo === undefined) {
+    filtro.activo = true;
+  } else if (activo !== 'all') {
+    filtro.activo = activo === 'true';
+  }
 
   if (req.distribuidor && req.distribuidor.catalogo) {
     // Distribuidor con catálogo asignado: gana SIEMPRE. Se ignora cualquier
@@ -151,6 +168,14 @@ exports.list = asyncHandler(async (req, res) => {
   if (slug) filtro.slug = slug.toLowerCase();
   if (q) filtro.$text = { $search: q };
 
+  return filtro;
+}
+
+// GET /api/v1/products — filtros básicos + búsqueda + paginación
+exports.list = asyncHandler(async (req, res) => {
+  const { q } = req.query;
+  const filtro = await buildProductFiltro(req);
+
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const skip = (page - 1) * limit;
@@ -175,6 +200,41 @@ exports.list = asyncHandler(async (req, res) => {
     data,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
   });
+});
+
+// GET /api/v1/products/changes?since=<ISO> — para que un consumidor (plugin
+// de WordPress con base de datos local) sepa qué sincronizar sin tener que
+// releer todo el catálogo. Devuelve productos activos E inactivos (para que
+// el consumidor pueda reflejar una desactivación), con el mismo detalle
+// completo que getBySlug/getById (withRefs, no withRefsLite) — a diferencia
+// de list(), esto es lo único que alimenta la base de datos local del
+// consumidor, así que un producto sincronizado por aquí debe traer todo lo
+// necesario para renderizar también su ficha de detalle, no solo la tarjeta
+// del grid.
+//
+// since=epoch (el valor por defecto) hace, en la práctica, una "sync
+// completa": el consumidor pagina llamando de nuevo con el `serverTime`
+// devuelto hasta recibir menos de CHANGES_LIMIT resultados — con eso ya
+// tiene TODO el catálogo, sin necesitar un endpoint de listado separado.
+// Ordenados por updatedAt ascendente para que la paginación por cursor no
+// se salte nada. `serverTime` se toma ANTES de consultar, para no perder
+// cambios que ocurran entre el query y la respuesta.
+const CHANGES_LIMIT = 200;
+exports.changes = asyncHandler(async (req, res) => {
+  const serverTime = new Date();
+  const since = req.query.since ? new Date(req.query.since) : new Date(0);
+  if (Number.isNaN(since.getTime())) {
+    throw new AppError(400, 'INVALID_SINCE', 'El parámetro "since" debe ser una fecha ISO válida');
+  }
+
+  const filtro = await buildProductFiltro(req, { includeInactive: true });
+  filtro.updatedAt = { $gt: since };
+
+  const data = await withRefs(Product.find(filtro))
+    .sort({ updatedAt: 1 })
+    .limit(CHANGES_LIMIT);
+
+  res.json({ success: true, data, serverTime: serverTime.toISOString() });
 });
 
 exports.getById = asyncHandler(async (req, res) => {
@@ -206,6 +266,7 @@ exports.create = asyncHandler(async (req, res) => {
   const data = { ...req.body };
   if (!data.slug && data.nombre) data.slug = await generateUniqueSlug(Product, data.nombre);
   const created = await Product.create(data);
+  dispararWebhook(created, 'creado');
   const full = await withRefs(Product.findById(created._id));
   res.status(201).json({ success: true, data: full });
 });
@@ -225,6 +286,7 @@ exports.update = asyncHandler(async (req, res) => {
   if (updates.nombre && !updates.slug) updates.slug = await generateUniqueSlug(Product, updates.nombre, req.params.id);
   const product = await Product.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   dispararNotificacionesSiAplica(existing, product);
+  dispararWebhook(product, 'actualizado');
   const full = await withRefs(Product.findById(product._id));
   res.json({ success: true, data: full });
 });
@@ -241,13 +303,19 @@ exports.remove = asyncHandler(async (req, res) => {
     for (const pid of publicIds) {
       try { await destroy(pid); } catch { console.warn('No se pudo borrar en Cloudinary:', pid); }
     }
+    const productId = product._id;
     await product.deleteOne();
+    // El producto ya no existe: no hay changes()/updatedAt que lo refleje, así
+    // que es el ÚNICO caso donde el webhook debe llevar el id directamente
+    // (el plugin lo borra de su tabla local en vez de resincronizarlo).
+    dispararWebhook({ _id: productId, updatedAt: new Date() }, 'eliminado');
     return res.json({ success: true, message: 'Producto eliminado permanentemente' });
   }
   const antes = await Product.findById(req.params.id);
   if (!antes) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
   const product = await Product.findByIdAndUpdate(req.params.id, { activo: false }, { new: true });
   dispararNotificacionesSiAplica(antes, product);
+  dispararWebhook(product, 'eliminado');
   res.json({ success: true, message: 'Producto desactivado (soft delete)', data: { _id: product._id, activo: product.activo } });
 });
 

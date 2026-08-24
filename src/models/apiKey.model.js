@@ -12,7 +12,16 @@ const apiKeySchema = new mongoose.Schema({
   nombre: { type: String, trim: true, default: 'Principal' },
   activo: { type: Boolean, default: true },
   revocada: { type: Boolean, default: false },
-  ultimoUso: { type: Date }
+  ultimoUso: { type: Date },
+
+  // Webhook de sincronización (plugin de WordPress del distribuidor): se
+  // registra con esta misma API Key ya autenticada, así que no hay riesgo de
+  // registro anónimo. webhookSecret se guarda en texto plano porque hace
+  // falta para FIRMAR cada evento saliente (HMAC), no es una credencial de
+  // login — mismo patrón que un webhook signing secret de Stripe.
+  webhookUrl: { type: String, default: null },
+  webhookSecret: { type: String, default: null, select: false },
+  webhookActive: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = mongoose.model('ApiKey', apiKeySchema);
