@@ -13,10 +13,19 @@ const mediaInput = z.object({
   sexo: z.enum(['hombre', 'mujer']).nullable().optional()
 });
 
-// PATCH /products/:id/images (actualizar metadata, no subir/borrar)
+// PATCH /products/:id/images (actualizar metadata, no subir/borrar).
+// `optionValue` null = mover a la galería general; un id = mover a ese color.
 const imageMetaUpdateSchema = z.object({
   public_id: z.string().min(1),
-  sexo: z.enum(['hombre', 'mujer']).nullable()
+  sexo: z.enum(['hombre', 'mujer']).nullable().optional(),
+  optionValue: mongoId.nullable().optional()
+});
+
+// PATCH /products/:id/images/order — lista completa de public_id de un
+// grupo (color u optionValue null = galería general), en el orden deseado.
+const imageReorderSchema = z.object({
+  optionValue: mongoId.nullable().optional(),
+  publicIds: z.array(z.string().min(1)).min(1)
 });
 
 // El VALOR del atributo se valida dinámicamente en el servicio (contra su
@@ -66,4 +75,4 @@ const productCreateSchema = z.object({
 
 const productUpdateSchema = productCreateSchema.partial();
 
-module.exports = { productCreateSchema, productUpdateSchema, imageMetaUpdateSchema };
+module.exports = { productCreateSchema, productUpdateSchema, imageMetaUpdateSchema, imageReorderSchema };

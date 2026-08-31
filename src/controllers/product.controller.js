@@ -286,6 +286,23 @@ exports.update = asyncHandler(async (req, res) => {
 
   const updates = { ...req.body };
   if (updates.nombre && !updates.slug) updates.slug = await generateUniqueSlug(Product, updates.nombre, req.params.id);
+
+  // Si cambia la marca PRINCIPAL sin que el caller mande `brands` explícito
+  // (el form de admin solo edita `brand`), hay que mantener sincronizada la
+  // lista de membresía: reemplaza la marca anterior por la nueva ahí donde
+  // aparezca, preservando cualquier marca adicional (ej. la agregada por
+  // scripts como tag-brand-overlap.js). findByIdAndUpdate NO corre el
+  // pre('validate') del modelo, así que sin esto `brands` queda huérfano de
+  // la marca real y el producto desaparece de los filtros por esa marca.
+  if (updates.brand && !updates.brands) {
+    const oldBrand = String(existing.brand);
+    const newBrand = String(updates.brand);
+    const currentBrands = (existing.brands || []).map(String);
+    updates.brands = currentBrands.includes(oldBrand)
+      ? currentBrands.map((b) => (b === oldBrand ? newBrand : b))
+      : [...new Set([newBrand, ...currentBrands])];
+  }
+
   const product = await Product.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   dispararNotificacionesSiAplica(existing, product);
   dispararWebhook(product, 'actualizado');
@@ -321,8 +338,11 @@ exports.remove = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Producto desactivado (soft delete)', data: { _id: product._id, activo: product.activo } });
 });
 
-// POST /api/v1/products/:id/images — sube a una variante (variantId) o a la
-// galería del producto si no se indica variante.
+// POST /api/v1/products/:id/images — sube a la galería del producto.
+// Si viene `optionValue` (ej. el id del color "Negro"), la imagen queda
+// ligada a ese valor y se comparte entre TODAS las tallas de ese color (no
+// se sube una vez por cada combinación color+talla). Sin `optionValue`, la
+// imagen es general (sirve para cualquier color).
 exports.addImages = asyncHandler(async (req, res) => {
   ensureConfigured();
   if (!req.files || req.files.length === 0) {
@@ -331,13 +351,13 @@ exports.addImages = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id).populate('brand', 'slug');
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
 
-  let bucket = product.media; // galería del producto por defecto
-  if (req.body.variantId) {
-    const variant = product.variants.id(req.body.variantId);
-    if (!variant) throw new AppError(400, 'VARIANT_NOT_FOUND', 'La variante indicada no existe');
-    bucket = variant.media;
+  const optionValue = req.body.optionValue || undefined;
+  if (optionValue) {
+    const declarado = product.options.some((o) => o.values.some((v) => String(v) === String(optionValue)));
+    if (!declarado) throw new AppError(400, 'OPTION_VALUE_NOT_FOUND', 'El valor indicado no está declarado en las opciones del producto');
   }
 
+  const bucket = product.media;
   const brandSlug = (product.brand && product.brand.slug) || 'sin-marca';
   const folder = `catalogo/${brandSlug}/${product.sku}`;
   const desde = bucket.length;
@@ -347,7 +367,8 @@ exports.addImages = asyncHandler(async (req, res) => {
       url: result.secure_url,
       public_id: result.public_id,
       orden: desde + i,
-      principal: desde === 0 && i === 0
+      principal: desde === 0 && i === 0,
+      optionValue
     });
   }
 
@@ -388,12 +409,13 @@ exports.removeImage = asyncHandler(async (req, res) => {
 });
 
 // PATCH /api/v1/products/:id/images — actualiza metadata de una imagen ya
-// subida (por ahora solo "sexo", para poder mostrar la foto correcta según
-// el género seleccionado en productos que combinan hombre y mujer). No sube
-// ni borra nada — busca la imagen por public_id en galería y en variantes,
-// igual que removeImage.
+// subida: "sexo" (a qué género se muestra) y/o "optionValue" (a qué color
+// pertenece — permite MOVER una foto de la galería general a un color, o
+// de un color a otro, sin volver a subirla). Solo toca los campos que
+// vengan en el body. No sube ni borra nada — busca la imagen por public_id
+// en galería y en variantes, igual que removeImage.
 exports.updateImageMeta = asyncHandler(async (req, res) => {
-  const { public_id: publicId, sexo } = req.body;
+  const { public_id: publicId, sexo, optionValue } = req.body;
 
   const product = await Product.findById(req.params.id);
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
@@ -407,7 +429,49 @@ exports.updateImageMeta = asyncHandler(async (req, res) => {
   }
   if (!target) throw new AppError(404, 'IMAGE_NOT_FOUND', 'La imagen no existe en este producto');
 
-  target.sexo = sexo;
+  if (sexo !== undefined) target.sexo = sexo;
+  if (optionValue !== undefined) {
+    if (optionValue) {
+      const declarado = product.options.some((o) => o.values.some((v) => String(v) === String(optionValue)));
+      if (!declarado) throw new AppError(400, 'OPTION_VALUE_NOT_FOUND', 'El valor indicado no está declarado en las opciones del producto');
+    }
+    target.optionValue = optionValue || undefined;
+  }
+
+  await product.save();
+  const full = await withRefs(Product.findById(product._id));
+  res.json({ success: true, data: full });
+});
+
+// PATCH /api/v1/products/:id/images/order — reordena las imágenes de UN
+// grupo (un color vía `optionValue`, o la galería general si no se manda).
+// Hay que mandar la lista COMPLETA de public_id de ese grupo, en el orden
+// deseado — así queda inequívoco cuál imagen va en qué posición.
+exports.reorderImages = asyncHandler(async (req, res) => {
+  const { optionValue, publicIds } = req.body;
+  if (!Array.isArray(publicIds) || publicIds.length === 0) {
+    throw new AppError(400, 'PUBLIC_IDS_REQUIRED', 'Falta la lista de public_id en el nuevo orden');
+  }
+
+  const product = await Product.findById(req.params.id);
+  if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+
+  const perteneceAlGrupo = (m) => (optionValue ? String(m.optionValue) === String(optionValue) : !m.optionValue);
+  const mediaArr = product.media.map((m) => m.toObject());
+  const indices = [];
+  mediaArr.forEach((m, i) => { if (perteneceAlGrupo(m)) indices.push(i); });
+  if (indices.length !== publicIds.length) {
+    throw new AppError(400, 'ORDER_MISMATCH', 'La lista de orden no coincide con las imágenes de este grupo');
+  }
+
+  const byPublicId = new Map(mediaArr.map((m) => [m.public_id, m]));
+  const reordered = publicIds.map((pid) => byPublicId.get(pid));
+  if (reordered.some((m) => !m || !perteneceAlGrupo(m))) {
+    throw new AppError(400, 'IMAGE_NOT_FOUND', 'Alguna imagen del nuevo orden no existe en este grupo');
+  }
+
+  indices.forEach((idx, i) => { mediaArr[idx] = { ...reordered[i], orden: i }; });
+  product.media = mediaArr;
 
   await product.save();
   const full = await withRefs(Product.findById(product._id));
