@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lo nuevo de la temporada</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink: #17140F;
+    --ink-2: #1F1B14;
+    --paper: #F1E8D6;
+    --paper-deep: #E3D5AF;
+    --paper-line: rgba(23,20,15,0.16);
+    --cream-text: #F1E8D6;
+    --cream-text-mut: rgba(241,232,214,0.62);
+    --ink-text: #221D14;
+    --ink-text-mut: #6B6350;
+    --petrol: #2E6660;
+    --petrol-bright: #3E8A82;
+    --rust: #B0451F;
+    --shadow: rgba(10,8,4,0.55);
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  body{
+    background:
+      radial-gradient(circle at 1px 1px, rgba(241,232,214,0.055) 1px, transparent 0) 0 0/22px 22px,
+      var(--ink);
+    color: var(--cream-text);
+    font-family:'Archivo', sans-serif;
+    padding: 76px 24px 100px;
+  }
+
+  .section{ max-width:1180px; margin:0 auto; }
+
+  /* ---------- header ---------- */
+  .header{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    margin-bottom:56px;
+  }
+
+  .tag{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; font-weight:500; letter-spacing:.12em; text-transform:uppercase;
+    color: var(--petrol-bright);
+    border:1px solid rgba(62,138,130,0.45);
+    background: rgba(62,138,130,0.08);
+    padding:6px 14px 6px 10px;
+    border-radius:3px;
+    margin-bottom:22px;
+  }
+  .tag::before{
+    content:"";
+    width:6px; height:6px; border-radius:50%;
+    background:var(--rust);
+    flex:0 0 auto;
+  }
+
+  h1{
+    font-family:'Oswald', sans-serif;
+    font-weight:600;
+    text-transform:uppercase;
+    font-size: clamp(34px, 5.2vw, 56px);
+    letter-spacing:.01em;
+    line-height:1.02;
+    text-wrap:balance;
+    margin-bottom:20px;
+  }
+
+  .rule{
+    width:64px; height:2px; background:var(--rust);
+    margin-bottom:20px;
+  }
+
+  .sub{
+    max-width:460px;
+    font-size:15.5px; line-height:1.65;
+    color: var(--cream-text-mut);
+  }
+
+  /* ---------- grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:26px;
+    margin-bottom:60px;
+  }
+  @media (max-width:920px){ .grid{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:540px){ .grid{ grid-template-columns:1fr; gap:34px; } }
+
+  /* ---------- card: swatch-card frame ---------- */
+  .card{
+    position:relative;
+    display:flex; flex-direction:column;
+    background:var(--paper);
+    border:1px solid var(--paper-line);
+    border-radius:2px;
+    padding:10px 10px 16px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.5) inset,
+      0 1px 2px var(--shadow),
+      0 16px 28px -18px var(--shadow);
+    transition: transform .22s ease, box-shadow .22s ease;
+  }
+  .card:hover{
+    transform: translateY(-3px);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.5) inset,
+      0 2px 4px var(--shadow),
+      0 22px 34px -16px var(--shadow);
+  }
+
+  .card-index{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px; font-weight:500; letter-spacing:.06em;
+    color: var(--ink-text-mut);
+    padding:2px 2px 8px;
+  }
+
+  /* image + badge + favorite */
+  .media{
+    position:relative;
+    aspect-ratio: 3/4;
+    overflow:hidden;
+    background:var(--paper-deep);
+    border:1px dashed var(--paper-line);
+  }
+
+  .media img{
+    width:100%; height:100%; object-fit:cover; display:block;
+  }
+
+  .stock-flag{
+    position:absolute; bottom:0; right:0; z-index:2;
+    font-family:'IBM Plex Mono', monospace;
+    background: var(--ink); color: var(--cream-text-mut);
+    font-size:9px; font-weight:500; letter-spacing:.05em; text-transform:uppercase;
+    padding:5px 9px;
+  }
+
+  .badge{
+    position:absolute; top:10px; left:10px; z-index:2;
+    padding:5px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px; font-weight:500; letter-spacing:.06em; text-transform:uppercase;
+    background: var(--ink); color: var(--cream-text);
+    border:1px solid rgba(241,232,214,0.18);
+  }
+  .badge.color{ background:var(--rust); color:#fff; border-color:transparent; }
+
+  .fav,
+  .swatch{
+    -webkit-appearance:none !important;
+    appearance:none !important;
+    box-sizing:border-box !important;
+    box-shadow:none !important;
+    text-shadow:none !important;
+    letter-spacing:normal !important;
+    text-transform:none !important;
+    font-size:0 !important;
+    line-height:0 !important;
+    margin:0 !important;
+  }
+
+  .fav{
+    position:absolute !important; top:10px !important; right:10px !important; z-index:2;
+    width:30px !important; height:30px !important;
+    min-width:30px !important; min-height:30px !important;
+    max-width:30px !important; max-height:30px !important;
+    padding:0 !important;
+    border-radius:50% !important;
+    background: rgba(23,20,15,0.82) !important;
+    border:1px solid rgba(241,232,214,0.2) !important;
+    cursor:pointer;
+    display:flex !important; align-items:center !important; justify-content:center !important;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .fav:hover{ transform:scale(1.08); background:var(--ink) !important; }
+  .fav svg{ width:14px !important; height:14px !important; stroke:var(--cream-text); fill:none; stroke-width:1.8; transition:fill .15s ease, stroke .15s ease; }
+  .fav.active svg{ fill:var(--rust); stroke:var(--rust); }
+
+  /* ---------- card body ---------- */
+  .card-body{ padding:16px 6px 0; display:flex; flex-direction:column; flex:1; }
+
+  .collection{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px; font-weight:500; letter-spacing:.08em; text-transform:uppercase;
+    color: var(--petrol);
+    margin-bottom:8px;
+  }
+
+  .card h3{
+    font-family:'Oswald', sans-serif;
+    font-weight:500;
+    text-transform:uppercase;
+    font-size:17px;
+    letter-spacing:.01em;
+    color: var(--ink-text);
+    margin-bottom:14px;
+  }
+
+  .swatches{ display:flex; flex-wrap:wrap; gap:7px 8px; margin-bottom:16px; }
+
+  .swatch{
+    display:inline-block !important;
+    width:16px !important; height:16px !important;
+    min-width:16px !important; min-height:16px !important;
+    max-width:16px !important; max-height:16px !important;
+    flex:0 0 16px !important;
+    border-radius:50% !important;
+    border:1px solid rgba(34,29,20,0.22) !important;
+    cursor:pointer; padding:0 !important;
+    position:relative;
+  }
+  .swatch[aria-pressed="true"]{
+    outline:1.5px solid var(--petrol) !important; outline-offset:2px;
+  }
+
+  .cotizar-wrap{
+    margin-top:auto;
+    border-top:1px dashed var(--paper-line);
+    padding-top:12px;
+  }
+
+  .cotizar{
+    -webkit-appearance:none !important; appearance:none !important;
+    box-sizing:border-box !important; box-shadow:none !important;
+    background:none !important; border:none !important; cursor:pointer;
+    padding:0 !important; margin:0 !important; min-width:0 !important; min-height:0 !important;
+    font-family:'Archivo', sans-serif !important;
+    font-size:12px !important; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+    color: var(--ink-text);
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .cotizar::before{
+    content:"→";
+    color:var(--rust);
+    transition:transform .2s ease;
+  }
+  .cotizar:hover::before{ transform:translateX(3px); }
+
+  /* ---------- footer CTA ---------- */
+  .footer{ display:flex; justify-content:center; }
+
+  .btn-outline{
+    -webkit-appearance:none !important; appearance:none !important;
+    box-sizing:border-box !important; box-shadow:none !important;
+    font-family:'IBM Plex Mono', monospace !important; font-weight:500;
+    font-size:12px !important; line-height:1 !important;
+    letter-spacing:.1em; text-transform:uppercase;
+    background:transparent !important; border:1px solid rgba(241,232,214,0.4) !important; color:var(--cream-text);
+    padding:17px 38px !important; margin:0 !important;
+    min-width:0 !important; min-height:0 !important;
+    border-radius:2px !important;
+    cursor:pointer;
+    transition:background .18s ease, color .18s ease, border-color .18s ease;
+  }
+  .btn-outline:hover{
+    background:var(--petrol) !important;
+    border-color:var(--petrol) !important;
+    color:#fff !important;
+  }
+
+  /* toast for cotizar action */
+  .toast{
+    position:fixed; left:50%; bottom:28px; transform:translate(-50%, 20px);
+    background:var(--paper); color:var(--ink-text); font-size:13px; font-weight:500;
+    font-family:'Archivo', sans-serif;
+    border:1px solid var(--paper-line);
+    padding:12px 20px; border-radius:2px;
+    box-shadow: 0 12px 24px -10px rgba(0,0,0,0.5);
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+    z-index:10;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce){
+    .fav, .cotizar::before, .btn-outline, .toast, .card{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<section class="section">
+
+  <div class="header">
+    <span class="tag">Recién llegado · Temporada 2026</span>
+    <h1>Lo nuevo de la temporada</h1>
+    <div class="rule"></div>
+    <p class="sub">Piezas disponibles con stock inmediato. Cotiza al mayoreo o compra por unidad.</p>
+  </div>
+
+  <div class="grid" id="grid">
+
+    <!-- CARD 1 -->
+    <article class="card" data-name="Chamarra Atractive">
+      <div class="card-index">N.01</div>
+      <div class="media">
+        <span class="badge">Nuevo</span>
+        <button class="fav" aria-label="Guardar en favoritos" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M20.8 8.6c0 4.2-8.8 10-8.8 10s-8.8-5.8-8.8-10a4.6 4.6 0 0 1 8.8-2 4.6 4.6 0 0 1 8.8 2z"/></svg>
+        </button>
+        <img src="https://prezenza.com/wp-content/uploads/2025/05/image-Photoroom-5-12-430x645.jpg" alt="Chamarra Atractive" loading="lazy">
+      </div>
+      <div class="card-body">
+        <div class="collection">Prezenza</div>
+        <h3>Chamarra Atractive</h3>
+        <div class="swatches" role="group" aria-label="Colores disponibles">
+          <button class="swatch" style="background:#F4F0E4;border:1px solid #C9C2AE" aria-pressed="true" aria-label="Blanco"></button>
+          <button class="swatch" style="background:#3E7CC2" aria-pressed="false" aria-label="Azul"></button>
+        </div>
+        <div class="cotizar-wrap">
+          <button class="cotizar">Cotizar producto</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- CARD 2 -->
+    <article class="card" data-name="Bomber College Unisex">
+      <div class="card-index">N.02</div>
+      <div class="media">
+        <span class="badge">Nuevo</span>
+        <button class="fav" aria-label="Guardar en favoritos" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M20.8 8.6c0 4.2-8.8 10-8.8 10s-8.8-5.8-8.8-10a4.6 4.6 0 0 1 8.8-2 4.6 4.6 0 0 1 8.8 2z"/></svg>
+        </button>
+        <img src="https://prezenza.com/wp-content/uploads/2025/05/image-Photoroom-1-18-430x645.jpg" alt="Bomber College Unisex" loading="lazy">
+      </div>
+      <div class="card-body">
+        <div class="collection">Prezenza</div>
+        <h3>Bomber College Unisex</h3>
+        <div class="swatches" role="group" aria-label="Colores disponibles">
+          <button class="swatch" style="background:#D8A54C" aria-pressed="true" aria-label="Mostaza"></button>
+          <button class="swatch" style="background:#1B1B1B" aria-pressed="false" aria-label="Negro"></button>
+        </div>
+        <div class="cotizar-wrap">
+          <button class="cotizar">Cotizar producto</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- CARD 3 -->
+    <article class="card" data-name="Playera Polo Manga Corta">
+      <div class="card-index">N.03</div>
+      <div class="media">
+        <span class="badge">Tendencia</span>
+        <button class="fav" aria-label="Guardar en favoritos" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M20.8 8.6c0 4.2-8.8 10-8.8 10s-8.8-5.8-8.8-10a4.6 4.6 0 0 1 8.8-2 4.6 4.6 0 0 1 8.8 2z"/></svg>
+        </button>
+        <img src="https://prezenza.com/wp-content/uploads/2025/05/amarillo-neon-2-430x645.jpg" alt="Playera Polo Manga Corta" loading="lazy">
+      </div>
+      <div class="card-body">
+        <div class="collection">Fit Be Fresh</div>
+        <h3>Playera Polo Manga Corta</h3>
+        <div class="swatches" role="group" aria-label="Colores disponibles">
+          <button class="swatch" style="background:#E8C33A" aria-pressed="true" aria-label="Amarillo"></button>
+          <button class="swatch" style="background:#CFE3F0" aria-pressed="false" aria-label="Celeste hielo"></button>
+          <button class="swatch" style="background:#1F2A44" aria-pressed="false" aria-label="Marino"></button>
+          <button class="swatch" style="background:#3E7CC2" aria-pressed="false" aria-label="Azul"></button>
+          <button class="swatch" style="background:#7B4B94" aria-pressed="false" aria-label="Morado"></button>
+          <button class="swatch" style="background:#F4F0E4;border:1px solid #C9C2AE" aria-pressed="false" aria-label="Blanco"></button>
+          <button class="swatch" style="background:#9C9791" aria-pressed="false" aria-label="Gris"></button>
+          <button class="swatch" style="background:#3F7C74" aria-pressed="false" aria-label="Verde azulado"></button>
+          <button class="swatch" style="background:#B7E4C7" aria-pressed="false" aria-label="Menta"></button>
+          <button class="swatch" style="background:#E0793B" aria-pressed="false" aria-label="Naranja"></button>
+          <button class="swatch" style="background:#C0392B" aria-pressed="false" aria-label="Rojo"></button>
+          <button class="swatch" style="background:#F0C4CE" aria-pressed="false" aria-label="Rosa"></button>
+          <button class="swatch" style="background:#6B1F2A" aria-pressed="false" aria-label="Vino"></button>
+          <button class="swatch" style="background:#2F4A3C" aria-pressed="false" aria-label="Verde oscuro"></button>
+          <button class="swatch" style="background:#3C6B4A" aria-pressed="false" aria-label="Verde bosque"></button>
+          <button class="swatch" style="background:#8FC98D" aria-pressed="false" aria-label="Verde claro"></button>
+        </div>
+        <div class="cotizar-wrap">
+          <button class="cotizar">Cotizar producto</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- CARD 4 -->
+    <article class="card" data-name="Camisa Pescadora">
+      <div class="card-index">N.04</div>
+      <div class="media">
+        <span class="badge color">Nuevo color</span>
+        <button class="fav" aria-label="Guardar en favoritos" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M20.8 8.6c0 4.2-8.8 10-8.8 10s-8.8-5.8-8.8-10a4.6 4.6 0 0 1 8.8-2 4.6 4.6 0 0 1 8.8 2z"/></svg>
+        </button>
+        <img src="https://prezenza.com/wp-content/uploads/2025/04/86c4d2a9-5cf3-4045-b676-5d050026a13f-Photoroom-2025-05-02T152647.623-700x1050-1-430x645.jpg" alt="Camisa Pescadora" loading="lazy">
+        <span class="stock-flag">Foto de relleno</span>
+      </div>
+      <div class="card-body">
+        <div class="collection">Fit Be Fresh</div>
+        <h3>Camisa Pescadora</h3>
+        <div class="swatches" role="group" aria-label="Colores disponibles">
+          <button class="swatch" style="background:#E0793B" aria-pressed="true" aria-label="Naranja"></button>
+          <button class="swatch" style="background:#C9A87C" aria-pressed="false" aria-label="Beige"></button>
+          <button class="swatch" style="background:#A9CBEB" aria-pressed="false" aria-label="Celeste"></button>
+          <button class="swatch" style="background:#1F2A44" aria-pressed="false" aria-label="Marino"></button>
+          <button class="swatch" style="background:#3E7CC2" aria-pressed="false" aria-label="Azul"></button>
+          <button class="swatch" style="background:#F4F0E4;border:1px solid #C9C2AE" aria-pressed="false" aria-label="Blanco"></button>
+          <button class="swatch" style="background:#9C9791" aria-pressed="false" aria-label="Gris"></button>
+          <button class="swatch" style="background:#C7C2B8" aria-pressed="false" aria-label="Plata"></button>
+          <button class="swatch" style="background:#C9B8D8" aria-pressed="false" aria-label="Lavanda"></button>
+          <button class="swatch" style="background:#2F4A3C" aria-pressed="false" aria-label="Verde oscuro"></button>
+          <button class="swatch" style="background:#1B1B1B" aria-pressed="false" aria-label="Negro"></button>
+          <button class="swatch" style="background:#B7E4C7" aria-pressed="false" aria-label="Menta"></button>
+          <button class="swatch" style="background:#C0392B" aria-pressed="false" aria-label="Rojo"></button>
+          <button class="swatch" style="background:#F0C4CE" aria-pressed="false" aria-label="Rosa"></button>
+          <button class="swatch" style="background:#6B1F2A" aria-pressed="false" aria-label="Vino"></button>
+        </div>
+        <div class="cotizar-wrap">
+          <button class="cotizar">Cotizar producto</button>
+        </div>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="footer">
+    <button class="btn-outline" id="verTodos">Ver todos los productos</button>
+  </div>
+
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  document.querySelectorAll('.fav').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const active = btn.getAttribute('aria-pressed') === 'true';
+      btn.setAttribute('aria-pressed', String(!active));
+      btn.classList.toggle('active', !active);
+    });
+  });
+
+  document.querySelectorAll('.card').forEach(card => {
+    const swatches = card.querySelectorAll('.swatch');
+    swatches.forEach(sw => {
+      sw.addEventListener('click', () => {
+        swatches.forEach(s => s.setAttribute('aria-pressed', 'false'));
+        sw.setAttribute('aria-pressed', 'true');
+      });
+    });
+  });
+
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  document.querySelectorAll('.cotizar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.closest('.card').dataset.name;
+      showToast(`Agregado a tu cotización: ${name}`);
+    });
+  });
+
+  document.getElementById('verTodos').addEventListener('click', () => {
+    showToast('Redirigiendo al catálogo completo…');
+  });
+</script>
+
+</body>
+</html>

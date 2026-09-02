@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hero estilo Dior — preview local</title>
+<style>
+  :root { font-family: system-ui, sans-serif; }
+  body { margin: 0; background: #f7f3ea; color: #18140f; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem clamp(1rem, 4vw, 2.5rem);
+    background: rgba(247, 243, 234, 0.92);
+    backdrop-filter: blur(6px);
+    font-weight: 700; letter-spacing: 0.04em;
+  }
+  section.filler { max-width: 960px; margin: 0 auto; padding: 4rem 1.5rem; }
+  section.filler p { line-height: 1.7; color: #4a4238; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <span>PREZENZA</span>
+  <span style="font-size:.8rem; opacity:.7;">preview local — no es parte del snippet de WordPress</span>
+</header>
+
+<!-- ============ A partir de aquí es EXACTAMENTE lo que va en hero-wordpress-snippet.html ============ -->
+
+<section class="pz-hero" id="pzHero">
+  <div class="pz-hero__sticky" id="pzHeroSticky">
+    <div class="pz-hero__row">
+
+      <div class="pz-hero__col pz-hero__col--start">
+        <img
+          src="https://prezenza.com/wp-content/uploads/2025/07/WhatsApp-Image-2025-07-09-at-10.24.32-AM-430x563.jpeg"
+          alt="" loading="lazy">
+      </div>
+
+      <div class="pz-hero__col pz-hero__col--visual">
+        <video
+          class="pz-hero__video"
+          autoplay muted loop playsinline preload="auto"
+          src="https://prezenza.com/wp-content/uploads/2025/08/NO-2-PREZENZA-1.mp4"
+        ></video>
+        <div class="pz-hero__overlay">
+          <p class="pz-hero__eyebrow">Nueva colección</p>
+          <h1 class="pz-hero__title">Prezenza</h1>
+          <a class="pz-hero__cta" href="#">Ver catálogo</a>
+        </div>
+      </div>
+
+      <div class="pz-hero__col pz-hero__col--end">
+        <img
+          src="https://prezenza.com/wp-content/uploads/2025/07/WhatsApp-Image-2025-07-09-at-10.24.32-AM-430x563.jpeg"
+          alt="" loading="lazy">
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<style>
+  .pz-hero {
+    --pz-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --pz-gap: 4px;
+    --pz-scroll-room: 160vh;
+    position: relative;
+    isolation: isolate;
+  }
+
+  .pz-hero * { box-sizing: border-box; }
+
+  .pz-hero__sticky {
+    position: relative;
+    height: var(--pz-scroll-room);
+  }
+
+  .pz-hero__row {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    width: 100%;
+    display: flex;
+    gap: 0;
+    overflow: clip;
+    background: #000;
+    transition: gap 1s var(--pz-ease);
+  }
+
+  .pz-hero.is-active .pz-hero__row {
+    gap: var(--pz-gap);
+  }
+
+  .pz-hero__col {
+    position: relative;
+    flex: none;
+    height: 100%;
+    overflow: clip;
+  }
+
+  .pz-hero__col img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .pz-hero__col--visual { width: 100%; transition: width 1s var(--pz-ease); }
+  .pz-hero__col--start,
+  .pz-hero__col--end {
+    width: 0%;
+    opacity: 0;
+    transition: width 1s var(--pz-ease), opacity 0.6s var(--pz-ease);
+  }
+  .pz-hero__col--end { transition-delay: 0s, 0.15s; }
+
+  .pz-hero.is-active .pz-hero__col--visual { width: 33.334%; }
+  .pz-hero.is-active .pz-hero__col--start,
+  .pz-hero.is-active .pz-hero__col--end {
+    width: 33.333%;
+    opacity: 1;
+  }
+
+  .pz-hero__video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* --- color del texto sobre el video: blanco por defecto.
+         Si tu video real tiene escenas muy claras y el texto blanco se
+         pierde, cambia esta única línea a dorado: --pz-text-color: #d4af37; --- */
+  .pz-hero { --pz-text-color: #ffffff; }
+
+  .pz-hero__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    text-align: center;
+    padding: 1.5rem;
+    pointer-events: none;
+  }
+
+  /* scrim: sombra suave detrás del texto para que se lea aunque el video
+     tenga un fondo claro en ese momento (independiente del color elegido) */
+  .pz-hero__overlay::before {
+    content: '';
+    position: absolute;
+    inset: -15% -25%;
+    z-index: -1;
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.22) 45%, transparent 75%);
+    pointer-events: none;
+  }
+
+  .pz-hero__overlay > * { pointer-events: auto; }
+
+  .pz-hero__eyebrow {
+    margin: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--pz-text-color) !important;
+    opacity: 0.9;
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+  }
+
+  .pz-hero__title {
+    margin: 0;
+    font-size: clamp(2rem, 6vw, 3.25rem);
+    font-weight: 600;
+    line-height: 1.05;
+    color: var(--pz-text-color) !important;
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+  }
+
+  .pz-hero__cta {
+    margin-top: 0.5rem;
+    padding: 0.65rem 1.6rem;
+    border: 1px solid var(--pz-text-color);
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--pz-text-color) !important;
+    text-decoration: none !important;
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+    transition: background 0.25s var(--pz-ease), color 0.25s var(--pz-ease);
+  }
+
+  .pz-hero__cta:hover {
+    background: var(--pz-text-color);
+    color: #111 !important;
+    text-shadow: none;
+  }
+
+  @media (max-width: 1023px) {
+    .pz-hero__sticky { height: auto; }
+    .pz-hero__row {
+      position: relative;
+      height: auto;
+      flex-direction: column;
+    }
+    .pz-hero__col--visual,
+    .pz-hero.is-active .pz-hero__col--visual { width: 100%; height: 100svh; }
+    .pz-hero__col--start,
+    .pz-hero__col--end,
+    .pz-hero.is-active .pz-hero__col--start,
+    .pz-hero.is-active .pz-hero__col--end {
+      width: 100%;
+      height: 60vh;
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pz-hero__row,
+    .pz-hero__col--visual,
+    .pz-hero__col--start,
+    .pz-hero__col--end {
+      transition: none !important;
+    }
+  }
+</style>
+
+<script>
+(() => {
+  'use strict';
+
+  const hero = document.getElementById('pzHero');
+  const sticky = document.getElementById('pzHeroSticky');
+  if (!hero || !sticky) return;
+
+  const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+
+  let heroTop = 0;
+  const measure = () => { heroTop = sticky.offsetTop; };
+
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    if (!isDesktop()) {
+      hero.classList.add('is-active');
+      return;
+    }
+    const active = window.scrollY > heroTop + 4;
+    hero.classList.toggle('is-active', active);
+  };
+
+  const onScroll = () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+  };
+
+  const onResize = () => { measure(); update(); };
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onResize);
+  document.addEventListener('DOMContentLoaded', onResize);
+  measure();
+  update();
+})();
+</script>
+
+<!-- ============ Fin del snippet — lo de abajo es solo relleno para poder scrollear en el preview ============ -->
+
+<section class="filler" id="catalogo">
+  <h2 style="font-family: system-ui; font-size:1.75rem; margin-bottom:1rem;">Contenido debajo del hero</h2>
+  <p>Este bloque solo existe para simular el resto de tu página de WordPress y poder probar el efecto completo.</p>
+  <p>Prueba: al cargar deberías ver el video a pantalla completa. Baja un poco el scroll y aparecen las dos imágenes a los lados mientras el video se recorta al centro. Sigue bajando y se queda fijo un momento. Sube de nuevo hasta el tope y el video vuelve a pantalla completa.</p>
+</section>
+<section class="filler"><p style="min-height:60vh;">(espacio extra de scroll)</p></section>
+
+</body>
+</html>

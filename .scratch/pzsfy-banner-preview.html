@@ -1,0 +1,229 @@
+<title>Estilo para tu Equipo</title>
+
+<div id="pzsfy-banner">
+  <div class="pzsfy-inner">
+
+    <div class="pzsfy-eyebrow-row">
+      <span class="pzsfy-eyebrow-line"></span>
+      <span class="pzsfy-eyebrow-text">Estilo para tu Equipo</span>
+      <span class="pzsfy-eyebrow-line"></span>
+    </div>
+
+    <div class="pzsfy-row">
+
+      <a class="pzsfy-photo" href="#catalogo" style="background-image:url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&q=80');" role="img" aria-label="Equipo vestido con uniformes Prezenza"></a>
+
+      <div class="pzsfy-copy">
+        <h2 class="pzsfy-title">Viste tu <span class="pzsfy-accent">marca</span></h2>
+        <p class="pzsfy-sub">Uniformes a la medida de tu equipo</p>
+
+        <div class="pzsfy-btn-row">
+          <a class="pzsfy-btn" href="#catalogo">Ver Catálogo</a>
+          <a class="pzsfy-btn pzsfy-btn-wa" href="https://wa.me/52XXXXXXXXXX?text=Hola%2C%20quiero%20cotizar%20uniformes%20para%20mi%20equipo" target="_blank" rel="noopener">Contactar por WhatsApp</a>
+        </div>
+      </div>
+
+      <div class="pzsfy-cats">
+        <a class="pzsfy-cat" href="#ejecutivo">
+          <span class="pzsfy-cat-img" style="background-image:url('https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=400&q=80');" role="img" aria-label="Uniformes ejecutivos"></span>
+          <span class="pzsfy-cat-label">Ejecutivo</span>
+        </a>
+        <a class="pzsfy-cat" href="#industrial">
+          <span class="pzsfy-cat-img" style="background-image:url('https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400&q=80');" role="img" aria-label="Uniformes industriales"></span>
+          <span class="pzsfy-cat-label">Industrial</span>
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<style>
+  #pzsfy-banner {
+    --ink: #1B1B1B;
+    --muted: #6B675C;
+    --gold: #9C7A3C;
+    --gold-deep: #7C5F2C;
+    --paper: #FBF9F4;
+    --card: #F1ECE1;
+    --line: #9C7A3C;
+    --wa-green: #215A36;
+    --wa-green-hover: #184328;
+
+    width: 100%;
+    background: var(--paper);
+    padding: 56px 0;
+    box-sizing: border-box;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+
+  #pzsfy-banner * { box-sizing: border-box; }
+
+  #pzsfy-banner .pzsfy-inner {
+    width: 100%;
+    max-width: 1200px;
+    padding: 0 24px;
+    margin: 0 auto;
+  }
+
+  #pzsfy-banner .pzsfy-eyebrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 36px;
+  }
+
+  #pzsfy-banner .pzsfy-eyebrow-line {
+    height: 1.5px;
+    width: 80px;
+    background: var(--line);
+    opacity: 0.8;
+  }
+
+  #pzsfy-banner .pzsfy-eyebrow-text {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 20px;
+    color: var(--gold-deep);
+    white-space: nowrap;
+  }
+
+  #pzsfy-banner .pzsfy-row {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    width: 100%;
+  }
+
+  #pzsfy-banner .pzsfy-photo {
+    flex: 1 1 42%;
+    align-self: stretch;
+    min-height: 380px;
+    border-radius: 4px;
+    background-color: var(--card);
+    background-size: cover;
+    background-position: center;
+    display: block;
+    text-decoration: none;
+  }
+
+  #pzsfy-banner .pzsfy-copy {
+    flex: 0 0 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  #pzsfy-banner .pzsfy-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 480;
+    font-size: clamp(24px, 2.4vw, 34px);
+    line-height: 1.15;
+    color: var(--ink);
+    margin: 0 0 12px 0;
+  }
+
+  #pzsfy-banner .pzsfy-accent {
+    color: var(--gold-deep);
+    font-style: italic;
+  }
+
+  #pzsfy-banner .pzsfy-sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0 0 24px 0;
+  }
+
+  #pzsfy-banner .pzsfy-btn-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  #pzsfy-banner .pzsfy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gold);
+    color: #fff;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 13px 24px;
+    border-radius: 50px;
+    transition: all .2s ease;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  #pzsfy-banner .pzsfy-btn:hover {
+    background: var(--gold-deep);
+    transform: translateY(-2px);
+  }
+
+  #pzsfy-banner .pzsfy-btn-wa {
+    background: var(--wa-green);
+  }
+
+  #pzsfy-banner .pzsfy-btn-wa:hover {
+    background: var(--wa-green-hover);
+  }
+
+  #pzsfy-banner .pzsfy-cats {
+    flex: 0 0 240px;
+    align-self: flex-start;
+    display: flex;
+    gap: 12px;
+  }
+
+  #pzsfy-banner .pzsfy-cat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+  }
+
+  #pzsfy-banner .pzsfy-cat-img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    border-radius: 4px;
+    background-color: var(--card);
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 6px 16px rgba(27,27,27,0.12);
+    transition: opacity .2s ease;
+  }
+
+  #pzsfy-banner .pzsfy-cat:hover .pzsfy-cat-img {
+    opacity: 0.85;
+  }
+
+  #pzsfy-banner .pzsfy-cat-label {
+    display: block;
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--ink);
+    text-align: center;
+  }
+
+  @media (max-width: 860px) {
+    #pzsfy-banner .pzsfy-inner { padding: 0 16px; }
+    #pzsfy-banner .pzsfy-row {
+      flex-direction: column;
+      gap: 24px;
+    }
+    #pzsfy-banner .pzsfy-photo { width: 100%; min-height: 280px; }
+    #pzsfy-banner .pzsfy-copy { align-items: center; text-align: center; }
+    #pzsfy-banner .pzsfy-btn-row { align-items: center; }
+    #pzsfy-banner .pzsfy-eyebrow-line { width: 40px; }
+    #pzsfy-banner .pzsfy-cats { width: 100%; max-width: 320px; align-self: center; }
+  }
+</style>
