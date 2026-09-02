@@ -12,7 +12,8 @@ const brandSchema = new mongoose.Schema({
     url: { type: String },
     public_id: { type: String }
   },
-  activo: { type: Boolean, default: true }
+  activo: { type: Boolean, default: true },
+  orden: { type: Number, default: 0 } // para ordenar en filtros/menús
 }, { timestamps: true });
 
 // Genera el slug a partir del nombre si no viene dado.

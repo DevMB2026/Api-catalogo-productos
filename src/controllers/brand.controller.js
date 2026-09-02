@@ -9,7 +9,7 @@ exports.list = asyncHandler(async (req, res) => {
   if (req.query.activo === undefined) filtro.activo = true;
   else if (req.query.activo !== 'all') filtro.activo = req.query.activo === 'true';
 
-  const data = await Brand.find(filtro).sort({ nombre: 1 });
+  const data = await Brand.find(filtro).sort({ orden: 1, nombre: 1 });
   res.json({ success: true, data });
 });
 

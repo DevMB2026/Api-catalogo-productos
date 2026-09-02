@@ -8,7 +8,8 @@ const brandCreateSchema = z.object({
     url: z.string().optional(),
     public_id: z.string().optional()
   }).optional(),
-  activo: z.boolean().optional()
+  activo: z.boolean().optional(),
+  orden: z.number().optional()
 });
 
 const brandUpdateSchema = brandCreateSchema.partial();
