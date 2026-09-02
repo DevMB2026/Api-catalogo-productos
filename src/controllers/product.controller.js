@@ -192,6 +192,37 @@ exports.list = asyncHandler(async (req, res) => {
     }
   }
 
+  // sort=brandOrden agrupa el listado por el `orden` de la marca (ver
+  // Brand.orden) en vez de alfabético/fecha — lo usa el catálogo público para
+  // que las marcas salgan en el orden que el negocio definió (ej. Prezenza,
+  // FitBeFresh, Be Fresh Security), no requiere find()+populate porque el
+  // orden vive en un doc referenciado, así que aquí sí hace falta aggregate.
+  if (req.query.sort === 'brandOrden' || req.query.sort === '-brandOrden') {
+    const dir = req.query.sort.startsWith('-') ? -1 : 1;
+    const [data, total] = await Promise.all([
+      Product.aggregate([
+        { $match: filtro },
+        { $lookup: { from: 'brands', localField: 'brand', foreignField: '_id', as: '_brand' } },
+        { $unwind: { path: '$_brand', preserveNullAndEmptyArrays: true } },
+        { $sort: { '_brand.orden': dir, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        { $project: { _brand: 0 } }
+      ]),
+      Product.countDocuments(filtro)
+    ]);
+    await Product.populate(data, [
+      { path: 'brand', select: 'nombre slug' },
+      { path: 'brands', select: 'nombre slug' },
+      { path: 'category', select: 'nombre slug' }
+    ]);
+    return res.json({
+      success: true,
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    });
+  }
+
   let query = Product.find(filtro);
   if (q) query = query.select({ score: { $meta: 'textScore' } });
   query = withRefsLite(query).sort(sort).skip(skip).limit(limit);
