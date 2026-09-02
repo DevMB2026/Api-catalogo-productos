@@ -193,10 +193,12 @@ exports.list = asyncHandler(async (req, res) => {
   }
 
   // sort=brandOrden agrupa el listado por el `orden` de la marca (ver
-  // Brand.orden) en vez de alfabético/fecha — lo usa el catálogo público para
-  // que las marcas salgan en el orden que el negocio definió (ej. Prezenza,
-  // FitBeFresh, Be Fresh Security), no requiere find()+populate porque el
-  // orden vive en un doc referenciado, así que aquí sí hace falta aggregate.
+  // Brand.orden) y, dentro de cada marca, por el `orden` de la categoría (ver
+  // Category.orden) — lo usa el catálogo público para que las marcas Y las
+  // categorías salgan en el orden que el negocio definió (ej. Prezenza,
+  // FitBeFresh, Be Fresh Security; Camisas, Chamarras, Chalecos, Sudaderas…),
+  // no requiere find()+populate porque ambos ordenes viven en docs
+  // referenciados, así que aquí sí hace falta aggregate.
   if (req.query.sort === 'brandOrden' || req.query.sort === '-brandOrden') {
     const dir = req.query.sort.startsWith('-') ? -1 : 1;
     const [data, total] = await Promise.all([
@@ -204,10 +206,12 @@ exports.list = asyncHandler(async (req, res) => {
         { $match: filtro },
         { $lookup: { from: 'brands', localField: 'brand', foreignField: '_id', as: '_brand' } },
         { $unwind: { path: '$_brand', preserveNullAndEmptyArrays: true } },
-        { $sort: { '_brand.orden': dir, createdAt: -1 } },
+        { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: '_category' } },
+        { $unwind: { path: '$_category', preserveNullAndEmptyArrays: true } },
+        { $sort: { '_brand.orden': dir, '_category.orden': 1, createdAt: -1 } },
         { $skip: skip },
         { $limit: limit },
-        { $project: { _brand: 0 } }
+        { $project: { _brand: 0, _category: 0 } }
       ]),
       Product.countDocuments(filtro)
     ]);
