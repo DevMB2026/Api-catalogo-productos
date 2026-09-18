@@ -66,6 +66,7 @@ const productCreateSchema = z.object({
   attributes: z.array(attributeValueInput).optional(),
   features: z.array(mongoId).optional(),
   applications: z.array(mongoId).optional(),
+  badges: z.array(mongoId).optional(),
   options: z.array(productOptionInput).optional(),
   variants: z.array(variantInput).optional(),
   sizeChart: mongoId.nullable().optional(), // null explícito = quitar la tabla asignada

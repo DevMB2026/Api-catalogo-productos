@@ -89,6 +89,7 @@ const productSchema = new Schema({
   attributes: { type: [attributeValueSchema], default: [] }, // valores EAV
   features: [oid('Feature')],
   applications: [oid('Application')],
+  badges: [oid('Badge')], // etiquetas promocionales (New Arrival, Últimas piezas…)
   options: { type: [productOptionSchema], default: [] }, // ejes + valores disponibles
   variants: { type: [variantSchema], default: [] }, // combinaciones generadas
 

@@ -100,6 +100,7 @@ const withRefs = (query) => query
   .populate('attributes.attribute')
   .populate('features')
   .populate('applications')
+  .populate('badges')
   .populate('options.option')
   .populate('options.values')
   .populate('variants.optionValues')
@@ -107,11 +108,15 @@ const withRefs = (query) => query
   .populate('sizeChartHombre')
   .populate('sizeChartMujer');
 
-// Populate ligero para el listado.
+// Populate ligero para el listado. `badges` SÍ se incluye aquí (a diferencia
+// de features/applications) porque es lo que pinta la cinta sobre la
+// tarjeta del producto en el grid — sin esto, el listado solo traería el
+// ObjectId y ningún consumidor podría mostrar el texto sin una llamada extra.
 const withRefsLite = (query) => query
   .populate('brand', 'nombre slug')
   .populate('brands', 'nombre slug')
-  .populate('category', 'nombre slug');
+  .populate('category', 'nombre slug')
+  .populate('badges', 'nombre slug');
 
 // Arma el filtro de Mongo compartido por list() y changes(): resuelve activo,
 // scope de catálogo (distribuidor o ?catalogo=), y el resto de los filtros de
@@ -218,7 +223,8 @@ exports.list = asyncHandler(async (req, res) => {
     await Product.populate(data, [
       { path: 'brand', select: 'nombre slug' },
       { path: 'brands', select: 'nombre slug' },
-      { path: 'category', select: 'nombre slug' }
+      { path: 'category', select: 'nombre slug' },
+      { path: 'badges', select: 'nombre slug' }
     ]);
     return res.json({
       success: true,
