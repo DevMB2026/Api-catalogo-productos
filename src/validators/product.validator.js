@@ -57,6 +57,10 @@ const productCreateSchema = z.object({
   brand: mongoId,
   brands: z.array(mongoId).optional(), // multi-marca; si no viene, el modelo lo siembra con [brand]
   skuAliases: z.array(z.object({ sku: z.string().min(1), brand: mongoId.optional() })).optional(),
+  // Independientes de skuAliases (por marca) — SKU de línea dama/caballero
+  // del mismo producto. null explícito = quitarlo.
+  skuHombre: z.string().min(1).nullable().optional(),
+  skuMujer: z.string().min(1).nullable().optional(),
   category: mongoId,
   sexo: z.array(z.enum(['hombre', 'mujer', 'unisex'])).min(1, 'Indica al menos un público'),
   attributes: z.array(attributeValueInput).optional(),

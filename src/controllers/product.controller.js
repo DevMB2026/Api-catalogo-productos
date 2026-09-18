@@ -290,8 +290,11 @@ exports.getBySlug = asyncHandler(async (req, res) => {
 
 exports.getBySku = asyncHandler(async (req, res) => {
   const sku = req.params.sku.toUpperCase();
-  // Matchea el SKU principal O cualquier alias (SKU secundario de otro sitio/marca).
-  const product = await withRefs(Product.findOne({ $or: [{ sku }, { 'skuAliases.sku': sku }] }));
+  // Matchea el SKU principal, cualquier alias (SKU secundario de otro
+  // sitio/marca) o el SKU de línea dama/caballero (independiente de los alias).
+  const product = await withRefs(Product.findOne({
+    $or: [{ sku }, { 'skuAliases.sku': sku }, { skuHombre: sku }, { skuMujer: sku }]
+  }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
   await enforceDistribuidorCatalogOrThrow(product, req);
   res.json({ success: true, data: product });

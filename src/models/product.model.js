@@ -69,6 +69,13 @@ const productSchema = new Schema({
   brand: oid('Brand', { required: true, index: true }), // marca PRINCIPAL (= brands[0]); se mantiene por compatibilidad
   brands: { type: [oid('Brand')], default: [] }, // TODAS las marcas donde aparece el producto (SSOT multi-marca)
   skuAliases: { type: [skuAliasSchema], default: [] }, // SKUs secundarios por sitio/marca
+  // SKU específico de línea, INDEPENDIENTE de skuAliases (ese es por
+  // marca/sitio; esto es por género dentro del MISMO sitio — ej. el
+  // proveedor da un código distinto para la versión dama y la caballero
+  // del mismo producto). Opcionales: solo aplica cuando el producto es
+  // para hombre y mujer a la vez (mismo caso que sizeChartHombre/Mujer).
+  skuHombre: { type: String, uppercase: true, trim: true },
+  skuMujer: { type: String, uppercase: true, trim: true },
   category: oid('Category', { required: true, index: true }),
   // Público objetivo: uno o varios ("multi"). Mongoose castea un string viejo a
   // [string] al leer, así que los datos anteriores siguen funcionando.
@@ -103,6 +110,8 @@ const productSchema = new Schema({
 productSchema.index({ brand: 1, category: 1, activo: 1 });
 productSchema.index({ brands: 1 });
 productSchema.index({ 'skuAliases.sku': 1 });
+productSchema.index({ skuHombre: 1 }, { sparse: true }); // sparse: la mayoría de productos no lo usan
+productSchema.index({ skuMujer: 1 }, { sparse: true });
 productSchema.index({ 'attributes.attribute': 1, 'attributes.value': 1 }); // filtrado por atributo
 productSchema.index({ features: 1 });
 productSchema.index({ applications: 1 });
