@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-const TIPOS = ['menudeo', 'mayoreo', 'distribuidor', 'master'];
+const TIPOS = ['menudeo', 'mayoreo', 'volumen', 'distribuidor', 'master'];
 
 // role/password NO están en ningún schema a propósito: el role siempre se
 // fija en el controller (nunca desde el body, mismo principio que

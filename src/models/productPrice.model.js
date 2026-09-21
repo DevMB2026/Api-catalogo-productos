@@ -11,14 +11,19 @@ const { Schema } = mongoose;
 // Un precio en null significa "todavía no definido" (no 0) — el admin puede
 // dejar un tipo de precio sin capturar sin que se interprete como gratis.
 //
-// Precio a nivel PRODUCTO (no por variante): así el admin no repite los 4
+// Precio a nivel PRODUCTO (no por variante): así el admin no repite los 5
 // precios por cada color/talla. Un override por variante puntual es una
 // posible fase futura, no forma parte de este modelo todavía.
+//
+// Niveles: menudeo, mayoreo y volumen son por CANTIDAD (en Prezenza: 1–30,
+// 31–200 y 201 o más piezas). distribuidor y master son precios especiales,
+// no dependen de la cantidad.
 const productPriceSchema = new Schema({
   product: { type: Schema.Types.ObjectId, ref: 'Product', required: true, unique: true, index: true },
 
   menudeo: { type: Number, min: 0, default: null },
   mayoreo: { type: Number, min: 0, default: null },
+  volumen: { type: Number, min: 0, default: null },
   distribuidor: { type: Number, min: 0, default: null },
   master: { type: Number, min: 0, default: null },
 

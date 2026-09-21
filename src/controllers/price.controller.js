@@ -6,6 +6,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const shape = (p) => ({
   menudeo: p ? p.menudeo : null,
   mayoreo: p ? p.mayoreo : null,
+  volumen: p ? p.volumen : null,
   distribuidor: p ? p.distribuidor : null,
   master: p ? p.master : null,
   updatedAt: p ? p.updatedAt : null
@@ -13,7 +14,7 @@ const shape = (p) => ({
 
 // GET /api/v1/products/:id/prices  (admin) — nunca expuesto por rutas públicas
 // ni por el namespace de distribuidor (X-API-Key). Si el producto todavía no
-// tiene precios capturados, responde los 4 en null en vez de 404: el admin
+// tiene precios capturados, responde los 5 en null en vez de 404: el admin
 // necesita poder abrir la sección "Precios" de un producto nuevo sin error.
 exports.getPrices = asyncHandler(async (req, res) => {
   const exists = await Product.exists({ _id: req.params.id });

@@ -3,7 +3,7 @@ const ProductPrice = require('../models/productPrice.model');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 
-const TIPOS = ['menudeo', 'mayoreo', 'distribuidor', 'master'];
+const TIPOS = ['menudeo', 'mayoreo', 'volumen', 'distribuidor', 'master'];
 
 // GET /api/v1/precios/productos/:id  (protect + requirePriceAccess)
 //

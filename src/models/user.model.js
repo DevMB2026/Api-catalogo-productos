@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
   // combinación (o ninguna). Un permiso NUNCA implica otro; se asignan
   // explícitos uno por uno.
   pricePermissions: {
-    type: [{ type: String, enum: ['menudeo', 'mayoreo', 'distribuidor', 'master'] }],
+    type: [{ type: String, enum: ['menudeo', 'mayoreo', 'volumen', 'distribuidor', 'master'] }],
     default: []
   }
 }, { timestamps: true });
