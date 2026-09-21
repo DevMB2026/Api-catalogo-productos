@@ -42,6 +42,10 @@ const productOptionInput = z.object({
 
 const variantInput = z.object({
   sku: z.string().optional(), // requerido se valida en el servicio (create)
+  skusErp: z.array(z.object({
+    sku: z.string().min(1),
+    sexo: z.enum(['hombre', 'mujer', 'unisex'])
+  })).optional(),
   optionValues: z.array(mongoId).optional(),
   composicion: z.string().optional(),
   stock: z.number().min(0).optional(),

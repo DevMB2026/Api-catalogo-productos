@@ -297,13 +297,23 @@ exports.getBySlug = asyncHandler(async (req, res) => {
 exports.getBySku = asyncHandler(async (req, res) => {
   const sku = req.params.sku.toUpperCase();
   // Matchea el SKU principal, cualquier alias (SKU secundario de otro
-  // sitio/marca) o el SKU de línea dama/caballero (independiente de los alias).
+  // sitio/marca), el SKU de línea dama/caballero (independiente de los alias)
+  // o el SKU de ERP de una variante (color+talla).
   const product = await withRefs(Product.findOne({
-    $or: [{ sku }, { 'skuAliases.sku': sku }, { skuHombre: sku }, { skuMujer: sku }]
+    $or: [{ sku }, { 'skuAliases.sku': sku }, { skuHombre: sku }, { skuMujer: sku }, { 'variants.skusErp.sku': sku }]
   }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
   await enforceDistribuidorCatalogOrThrow(product, req);
-  res.json({ success: true, data: product });
+  // Si el SKU era de una variante, indica cuál (y el sexo de ese SKU) para no
+  // obligar al cliente a recorrer product.variants.
+  const matchedVariant = product.variants.find((v) => (v.skusErp || []).some((e) => e.sku === sku));
+  res.json({
+    success: true,
+    data: product,
+    ...(matchedVariant && {
+      matchedVariant: { _id: matchedVariant._id, sku: matchedVariant.sku, sexo: matchedVariant.skusErp.find((e) => e.sku === sku).sexo }
+    })
+  });
 });
 
 // POST /api/v1/products  (admin) — Zod (forma) + validación dinámica (semántica)

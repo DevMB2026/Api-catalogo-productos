@@ -6,6 +6,7 @@ const OptionValue = require('../models/optionValue.model');
 const Feature = require('../models/feature.model');
 const Application = require('../models/application.model');
 const SizeChart = require('../models/sizeChart.model');
+const Product = require('../models/product.model');
 const { resolveAttributeSchema } = require('./attributeSchema.service');
 
 const isId = (v) => mongoose.isValidObjectId(v);
@@ -119,6 +120,7 @@ async function validateProductDynamic(body, { partial = false } = {}) {
   // --- Variants (combinaciones) ---
   if (body.variants != null) {
     const skus = new Set();
+    const skusErp = new Set();
     const combos = new Set();
     body.variants.forEach((v, i) => {
       if (!partial && (!v.sku || !String(v.sku).trim())) addErr(`variants.${i}.sku`, 'La variante requiere SKU');
@@ -126,6 +128,11 @@ async function validateProductDynamic(body, { partial = false } = {}) {
         const s = String(v.sku).toUpperCase();
         if (skus.has(s)) addErr(`variants.${i}.sku`, 'SKU de variante duplicado');
         skus.add(s);
+      }
+      for (const e of v.skusErp || []) {
+        const s = String(e.sku).trim().toUpperCase();
+        if (skusErp.has(s)) addErr(`variants.${i}.skusErp`, `SKU de ERP duplicado en el producto: ${s}`);
+        skusErp.add(s);
       }
       const ovs = (v.optionValues || []).map(String);
       const coveredOptions = new Set();
@@ -144,6 +151,18 @@ async function validateProductDynamic(body, { partial = false } = {}) {
         combos.add(comboKey);
       }
     });
+
+    // Un SKU de ERP identifica UNA sola variante en todo el catálogo.
+    if (skusErp.size) {
+      const clash = await Product.findOne({
+        ...(body._id ? { _id: { $ne: body._id } } : {}),
+        'variants.skusErp.sku': { $in: [...skusErp] }
+      }).select('nombre variants.skusErp.sku').lean();
+      if (clash) {
+        const dup = clash.variants.flatMap((v) => v.skusErp || []).map((e) => e.sku).find((s) => skusErp.has(s));
+        addErr('variants', `El SKU de ERP ${dup} ya está asignado al producto "${clash.nombre}"`);
+      }
+    }
   }
 
   // --- Existencia de refs: features / applications / sizeChart ---

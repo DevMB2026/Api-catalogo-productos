@@ -36,10 +36,19 @@ const productOptionSchema = new Schema({
   values: [oid('OptionValue')]
 }, { _id: false });
 
+// SKU del ERP de una variante. Una variante (color+talla) de un producto que
+// combina dama y caballero corresponde a un SKU del ERP POR sexo, por eso es
+// una lista y no un solo campo. Único a nivel de app (ver productValidation).
+const skuErpSchema = new Schema({
+  sku: { type: String, required: true, uppercase: true, trim: true },
+  sexo: { type: String, enum: ['hombre', 'mujer', 'unisex'], required: true }
+}, { _id: false });
+
 // Variante: una combinación concreta de valores de opción (uno por eje).
 // Mantiene _id para poder direccionarla desde los endpoints.
 const variantSchema = new Schema({
   sku: { type: String, trim: true }, // único a nivel de app (no por índice, al ser embebido)
+  skusErp: { type: [skuErpSchema], default: [] }, // SKUs del ERP (uno por sexo), independientes de `sku`
   optionValues: [oid('OptionValue')], // ej. [Negro, M]
   composicion: { type: String, trim: true }, // texto libre: "60% algodón, 40% poliéster"
   stock: { type: Number, default: 0, min: 0 }, // preparado para inventario
@@ -111,6 +120,7 @@ const productSchema = new Schema({
 productSchema.index({ brand: 1, category: 1, activo: 1 });
 productSchema.index({ brands: 1 });
 productSchema.index({ 'skuAliases.sku': 1 });
+productSchema.index({ 'variants.skusErp.sku': 1 }); // GET /products/sku/:sku por SKU de ERP
 productSchema.index({ skuHombre: 1 }, { sparse: true }); // sparse: la mayoría de productos no lo usan
 productSchema.index({ skuMujer: 1 }, { sparse: true });
 productSchema.index({ 'attributes.attribute': 1, 'attributes.value': 1 }); // filtrado por atributo

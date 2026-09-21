@@ -53,6 +53,17 @@ const definition = {
         type: 'object',
         properties: {
           sku: { type: 'string', example: 'SEG-001-NAR-M' },
+          skusErp: {
+            type: 'array',
+            description: 'SKUs del ERP de la variante (uno por sexo). Únicos en todo el catálogo.',
+            items: {
+              type: 'object',
+              properties: {
+                sku: { type: 'string', example: 'CHMPSCRM75XXPOLAMNUN' },
+                sexo: { type: 'string', enum: ['hombre', 'mujer', 'unisex'] }
+              }
+            }
+          },
           optionValues: { type: 'array', items: { type: 'string' }, description: 'IDs de OptionValue (uno por cada eje declarado)' },
           composicion: { type: 'string', example: '60% algodón, 40% poliéster' },
           stock: { type: 'integer', example: 10 },
