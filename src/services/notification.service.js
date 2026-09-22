@@ -3,6 +3,7 @@ const User = require('../models/user.model');
 const ApiKey = require('../models/apiKey.model');
 const Notification = require('../models/notification.model');
 const { sendEmail } = require('../utils/email');
+const { motivoUrlNoPermitida } = require('../utils/safeUrl');
 
 // Equipo interno: lista fija por env var (separada por comas).
 function equipoInterno() {
@@ -89,7 +90,10 @@ async function dispararWebhookSiAplica(product, evento) {
   });
 
   await Promise.allSettled(
-    keys.map((key) => {
+    keys.map(async (key) => {
+      // Se revisa de nuevo antes de CADA envío (el DNS pudo cambiar desde el
+      // registro): nunca se llama a localhost ni a la red interna.
+      if (await motivoUrlNoPermitida(key.webhookUrl)) return;
       const signature = crypto.createHmac('sha256', key.webhookSecret).update(payload).digest('hex');
       return fetch(key.webhookUrl, {
         method: 'POST',
@@ -98,6 +102,7 @@ async function dispararWebhookSiAplica(product, evento) {
           'X-Catalogo-Signature': `sha256=${signature}`
         },
         body: payload,
+        redirect: 'error', // una redirección podría apuntar a una dirección interna
         signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS)
       });
     })

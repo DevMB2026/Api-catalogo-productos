@@ -30,6 +30,12 @@ const errorHandler = require('./middleware/errorHandler');
 // El arranque (conexión a Mongo + listen) vive en server.js.
 const app = express();
 
+// Render pone un proxy delante de la app: sin esto req.ip es la IP del proxy y
+// el rate-limit (login incluido) contaría a TODOS los visitantes en un mismo
+// contador. Número de saltos de proxy de confianza (TRUST_PROXY, default 1);
+// en local, sin proxy, se puede poner TRUST_PROXY=0.
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
+
 app.use(express.json());
 app.use(cors(corsOptions)); // whitelist desde ALLOWED_ORIGINS (resuelve C-5)
 

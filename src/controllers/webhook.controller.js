@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiKey = require('../models/apiKey.model');
+const AppError = require('../utils/AppError');
+const { motivoUrlNoPermitida } = require('../utils/safeUrl');
 
 // POST /api/v1/distribuidores/productos/webhook  (X-API-Key, ya autenticado
 // por apiKeyAuth). Registra la URL de callback del plugin y genera un
@@ -9,6 +11,10 @@ const ApiKey = require('../models/apiKey.model');
 // simplemente rota el secreto anterior (no hay "actualizar solo la URL" por
 // separado: es más simple y no hay ningún caso de uso que lo necesite).
 exports.register = asyncHandler(async (req, res) => {
+  // Anti-SSRF: solo https hacia direcciones públicas (ver utils/safeUrl.js).
+  const motivo = await motivoUrlNoPermitida(req.body.url);
+  if (motivo) throw new AppError(400, 'VALIDATION_ERROR', 'Datos inválidos', { url: motivo });
+
   const webhookSecret = crypto.randomBytes(32).toString('hex');
 
   await ApiKey.updateOne(
