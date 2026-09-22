@@ -17,7 +17,7 @@ module.exports = asyncHandler(async (req, res, next) => {
   }
 
   const key = await ClientApiKey.findOne({ hash: hashKey(raw.trim()), activo: true }).select('user');
-  const user = key && await User.findById(key.user).select('role activo pricePermissions nombre');
+  const user = key && await User.findById(key.user).select('role activo pricePermissions nombre updatedAt');
   if (!key || !user || !user.activo || user.role !== 'usuario') {
     throw new AppError(401, 'API_KEY_INVALID', 'API Key inválida o inactiva');
   }
@@ -25,7 +25,8 @@ module.exports = asyncHandler(async (req, res, next) => {
     throw new AppError(403, 'NO_PRICE_ACCESS', 'No tienes permisos de precio asignados.');
   }
 
-  req.cliente = { userId: user._id, nombre: user.nombre, pricePermissions: user.pricePermissions };
+  // actualizado: si cambiaron sus permisos, /changes le devuelve todo de nuevo.
+  req.cliente = { userId: user._id, nombre: user.nombre, pricePermissions: user.pricePermissions, actualizado: user.updatedAt };
 
   // Sin await: registrar el uso no debe retrasar ni tumbar la respuesta.
   ClientApiKey.updateOne({ _id: key._id }, { ultimoUso: new Date() }).catch(() => {});

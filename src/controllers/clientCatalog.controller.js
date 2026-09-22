@@ -3,6 +3,7 @@ const ProductPrice = require('../models/productPrice.model');
 const Brand = require('../models/brand.model');
 const OptionValue = require('../models/optionValue.model');
 const asyncHandler = require('../utils/asyncHandler');
+const AppError = require('../utils/AppError');
 const { rangosPrecio } = require('../utils/preciosReglas');
 
 // Catálogo para CLIENTES con API Key (clientKeyAuth): productos activos con
@@ -19,6 +20,27 @@ function preciosPermitidos(priceDoc, permitidos) {
   const out = {};
   for (const tipo of permitidos) out[tipo] = priceDoc ? priceDoc[tipo] ?? null : null;
   return out;
+}
+
+const conRefs = (query) => query
+  .select('nombre slug sku brand category sexo media options variants updatedAt activo')
+  .populate('brand', 'nombre slug')
+  .populate('category', 'nombre slug')
+  .lean();
+
+// Arma la respuesta de varios productos con sus precios y valores de opción
+// (una consulta para todos, no una por producto).
+async function armar(productos, permitidos) {
+  const ids = productos.map((p) => p._id);
+  const ovIds = [...new Set(productos.flatMap((p) => (p.variants || []).flatMap((v) => (v.optionValues || []).map(String))))];
+  const [precios, valores] = await Promise.all([
+    ProductPrice.find({ product: { $in: ids } }).lean(),
+    OptionValue.find({ _id: { $in: ovIds } }).populate('option', 'slug tipo').lean()
+  ]);
+  const precioPor = new Map(precios.map((d) => [String(d.product), d]));
+  const ovs = new Map(valores.map((o) => [String(o._id), { ...o, option: String(o.option?._id || o.option) }]));
+  const colorOptionIds = new Set(valores.filter((o) => o.option && (o.option.slug === 'color' || o.option.tipo === 'swatch')).map((o) => String(o.option._id)));
+  return productos.map((p) => shapeProducto(p, precioPor.get(String(p._id)), permitidos, ovs, colorOptionIds));
 }
 
 function shapeProducto(p, priceDoc, permitidos, ovs, colorOptionIds) {
@@ -79,30 +101,104 @@ exports.list = asyncHandler(async (req, res) => {
   if (typeof req.query.q === 'string' && req.query.q.trim()) filtro.$text = { $search: req.query.q.trim() };
 
   const [productos, total] = await Promise.all([
-    Product.find(filtro)
-      .select('nombre slug sku brand category sexo media options variants updatedAt')
-      .populate('brand', 'nombre slug')
-      .populate('category', 'nombre slug')
-      .sort({ nombre: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
+    conRefs(Product.find(filtro)).sort({ nombre: 1 }).skip((page - 1) * limit).limit(limit),
     Product.countDocuments(filtro)
   ]);
 
-  const ids = productos.map((p) => p._id);
-  const ovIds = [...new Set(productos.flatMap((p) => (p.variants || []).flatMap((v) => (v.optionValues || []).map(String))))];
-  const [precios, valores] = await Promise.all([
-    ProductPrice.find({ product: { $in: ids } }).lean(),
-    OptionValue.find({ _id: { $in: ovIds } }).populate('option', 'slug tipo').lean()
-  ]);
-  const precioPor = new Map(precios.map((d) => [String(d.product), d]));
-  const ovs = new Map(valores.map((o) => [String(o._id), { ...o, option: String(o.option?._id || o.option) }]));
-  const colorOptionIds = new Set(valores.filter((o) => o.option && (o.option.slug === 'color' || o.option.tipo === 'swatch')).map((o) => String(o.option._id)));
+  res.json({
+    success: true,
+    data: await armar(productos, req.cliente.pricePermissions),
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+  });
+});
+
+// GET /api/v1/clientes/productos/:id — un producto activo (inactivo = 404).
+exports.getById = asyncHandler(async (req, res) => {
+  const p = await conRefs(Product.findOne({ _id: req.params.id, activo: true }));
+  if (!p) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+  const [data] = await armar([p], req.cliente.pricePermissions);
+  res.json({ success: true, data });
+});
+
+// GET /api/v1/clientes/productos/sku/:sku — busca por SKU del producto, alias,
+// SKU de línea dama/caballero o SKU del ERP de una variante (igual que
+// /products/sku/:sku). Si era de una variante, `varianteEncontrada` dice cuál.
+exports.getBySku = asyncHandler(async (req, res) => {
+  const sku = String(req.params.sku).trim().toUpperCase();
+  const p = await conRefs(Product.findOne({
+    activo: true,
+    $or: [{ sku }, { 'skuAliases.sku': sku }, { skuHombre: sku }, { skuMujer: sku }, { 'variants.skusErp.sku': sku }]
+  }));
+  if (!p) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+  const [data] = await armar([p], req.cliente.pricePermissions);
+  const v = data.variantes.find((x) => x.skus.some((e) => e.sku === sku));
+  res.json({
+    success: true,
+    data,
+    ...(v && { varianteEncontrada: { color: v.color, talla: v.talla, sku, genero: v.skus.find((e) => e.sku === sku).genero } })
+  });
+});
+
+// GET /api/v1/clientes/productos/changes?since=<ISO> — para sincronizar sin
+// releer todo. Un producto "cambió" si cambió el producto O su precio (los
+// precios viven en ProductPrice: su updatedAt no toca el del producto). Si
+// cambiaron los permisos del propio cliente desde `since`, cambian todos sus
+// precios: se devuelve el catálogo completo (resincronizacionCompleta).
+// Un producto desactivado sale como { _id, sku, activo:false } — sin datos ni
+// precios — para que el consumidor lo quite.
+// Sin `since` = sincronización completa. Se vuelve a llamar con el
+// `serverTime` devuelto; si `hayMas` es true, llamar de nuevo enseguida.
+// `limit` opcional (máximo y valor por defecto: CHANGES_LIMIT).
+const CHANGES_LIMIT = 200;
+exports.changes = asyncHandler(async (req, res) => {
+  const serverTime = new Date();
+  let since = req.query.since ? new Date(String(req.query.since)) : new Date(0);
+  if (Number.isNaN(since.getTime())) {
+    throw new AppError(400, 'INVALID_SINCE', 'El parámetro "since" debe ser una fecha ISO válida');
+  }
+  // Un cambio en la cuenta del cliente (p. ej. sus permisos) cambia TODOS sus
+  // precios: cuenta como un cambio de cada producto con ese momento. Así el
+  // cursor siempre avanza (nunca se reinicia a mitad de una paginación).
+  const cuenta = req.cliente.actualizado || new Date(0);
+  const permisosCambiaron = Boolean(req.query.since) && cuenta > since;
+
+  const preciosCambiados = await ProductPrice.find({ updatedAt: { $gt: since } }).select('product updatedAt').lean();
+  const cambioPrecio = new Map(preciosCambiados.map((d) => [String(d.product), d.updatedAt]));
+  const candidatos = await conRefs(Product.find(cuenta > since ? {} : {
+    $or: [{ updatedAt: { $gt: since } }, { _id: { $in: preciosCambiados.map((d) => d.product) } }]
+  }));
+
+  // Momento efectivo del cambio: el más reciente entre producto, precio y cuenta.
+  const conMomento = candidatos
+    .map((p) => {
+      const momentos = [p.updatedAt, cambioPrecio.get(String(p._id)), cuenta].filter(Boolean);
+      return { p, momento: new Date(Math.max(...momentos.map((x) => x.getTime()))) };
+    })
+    .filter((x) => x.momento > since)
+    .sort((a, b) => a.momento - b.momento);
+
+  // Si hay más del límite, se corta en un límite de tiempo (nunca a mitad de
+  // una misma marca de tiempo) para que la siguiente llamada no se salte nada.
+  const limite = Math.min(CHANGES_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || CHANGES_LIMIT));
+  let lote = conMomento;
+  let hayMas = false;
+  if (conMomento.length > limite) {
+    const corte = conMomento[limite - 1].momento.getTime();
+    lote = conMomento.filter((x) => x.momento.getTime() <= corte);
+    hayMas = lote.length < conMomento.length;
+  }
+
+  const activos = lote.filter((x) => x.p.activo !== false).map((x) => x.p);
+  const armados = new Map((await armar(activos, req.cliente.pricePermissions)).map((d) => [String(d._id), d]));
+  const data = lote.map(({ p }) => (p.activo === false
+    ? { _id: p._id, sku: p.sku, activo: false, actualizado: p.updatedAt }
+    : { ...armados.get(String(p._id)), activo: true }));
 
   res.json({
     success: true,
-    data: productos.map((p) => shapeProducto(p, precioPor.get(String(p._id)), req.cliente.pricePermissions, ovs, colorOptionIds)),
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    data,
+    serverTime: hayMas ? lote[lote.length - 1].momento.toISOString() : serverTime.toISOString(),
+    hayMas,
+    ...(permisosCambiaron && { resincronizacionCompleta: true })
   });
 });

@@ -9,5 +9,9 @@ const c = require('../controllers/clientCatalog.controller');
 router.use(clientKeyAuth);
 
 router.get('/productos', c.list);
+// Rutas fijas ANTES de /productos/:id para que "changes" o "sku" no se lean como id.
+router.get('/productos/changes', c.changes);
+router.get('/productos/sku/:sku', c.getBySku);
+router.get('/productos/:id', c.getById);
 
 module.exports = router;
