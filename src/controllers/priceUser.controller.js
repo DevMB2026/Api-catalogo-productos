@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const User = require('../models/user.model');
+const ClientApiKey = require('../models/clientApiKey.model');
+const { createClientKeyForUser, revokeClientKeysForUser } = require('../services/clientApiKey.service');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 
@@ -28,14 +30,22 @@ function generatePassword() {
 
 // Nunca incluye password (select:false en el modelo ya lo excluye por
 // defecto; esto es una segunda barrera explícita).
-const shape = (u) => ({
+const shape = (u, key) => ({
   _id: u._id,
   nombre: u.nombre,
   email: u.email,
   activo: u.activo,
   pricePermissions: u.pricePermissions,
-  createdAt: u.createdAt
+  createdAt: u.createdAt,
+  // Solo metadatos de la llave activa (nunca el hash ni la llave en claro).
+  apiKey: key ? { prefijo: key.prefijo, creada: key.createdAt, ultimoUso: key.ultimoUso || null } : null
 });
+
+// Llaves activas de un grupo de usuarios, indexadas por user id.
+async function llavesActivas(userIds) {
+  const keys = await ClientApiKey.find({ user: { $in: userIds }, activo: true }).select('user prefijo createdAt ultimoUso').lean();
+  return new Map(keys.map((k) => [String(k.user), k]));
+}
 
 // GET /api/v1/usuarios-precios
 exports.list = asyncHandler(async (req, res) => {
@@ -43,7 +53,8 @@ exports.list = asyncHandler(async (req, res) => {
   if (req.query.activo !== undefined && req.query.activo !== 'all') filtro.activo = req.query.activo === 'true';
 
   const usuarios = await User.find(filtro).sort({ createdAt: -1 });
-  res.json({ success: true, data: usuarios.map(shape) });
+  const llaves = await llavesActivas(usuarios.map((u) => u._id));
+  res.json({ success: true, data: usuarios.map((u) => shape(u, llaves.get(String(u._id)))) });
 });
 
 // GET /api/v1/usuarios-precios/:id
@@ -112,4 +123,29 @@ exports.resetPassword = asyncHandler(async (req, res) => {
   await usuario.save();
 
   res.json({ success: true, message: 'Contraseña restablecida. Cópiala ahora: no volverá a mostrarse.', data: { password } });
+});
+
+// POST /api/v1/usuarios-precios/:id/api-key — genera la API Key de cliente
+// (`cli_…`) para consumir /api/v1/clientes. Desactiva la anterior y devuelve
+// la nueva UNA SOLA VEZ (mismo patrón que regenerar-key de distribuidores).
+exports.generarApiKey = asyncHandler(async (req, res) => {
+  const usuario = await User.findOne({ _id: req.params.id, role: 'usuario' });
+  if (!usuario) throw new AppError(404, 'PRICE_USER_NOT_FOUND', 'Usuario no encontrado');
+
+  const { raw, doc } = await createClientKeyForUser(usuario._id);
+  res.status(201).json({
+    success: true,
+    message: 'API Key generada. Cópiala ahora: no volverá a mostrarse.',
+    data: { apiKey: raw, user: shape(usuario, doc) }
+  });
+});
+
+// DELETE /api/v1/usuarios-precios/:id/api-key — revoca la llave activa; deja
+// de funcionar en la siguiente petición.
+exports.revocarApiKey = asyncHandler(async (req, res) => {
+  const usuario = await User.findOne({ _id: req.params.id, role: 'usuario' });
+  if (!usuario) throw new AppError(404, 'PRICE_USER_NOT_FOUND', 'Usuario no encontrado');
+
+  const revocadas = await revokeClientKeysForUser(usuario._id);
+  res.json({ success: true, message: revocadas ? 'API Key revocada' : 'No tenía API Key activa', data: shape(usuario, null) });
 });

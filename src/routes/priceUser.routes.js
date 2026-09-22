@@ -16,5 +16,7 @@ router.post('/', validate(createSchema), c.create);
 router.get('/:id', c.getById);
 router.patch('/:id', validate(updateSchema), c.update);
 router.post('/:id/reset-password', c.resetPassword);
+router.post('/:id/api-key', c.generarApiKey);
+router.delete('/:id/api-key', c.revocarApiKey);
 
 module.exports = router;

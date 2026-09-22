@@ -15,6 +15,7 @@ const authRoutes = require('./routes/auth.routes');
 const distributorRoutes = require('./routes/distributor.routes');
 const privatePriceRoutes = require('./routes/privatePrice.routes');
 const priceUserRoutes = require('./routes/priceUser.routes');
+const clientCatalogRoutes = require('./routes/clientCatalog.routes');
 const attributeRoutes = require('./routes/attribute.routes');
 const featureRoutes = require('./routes/feature.routes');
 const applicationRoutes = require('./routes/application.routes');
@@ -67,6 +68,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/distribuidores', distributorRoutes);
 app.use('/api/v1/precios', privatePriceRoutes);
 app.use('/api/v1/usuarios-precios', priceUserRoutes);
+app.use('/api/v1/clientes', clientCatalogRoutes); // catálogo con SKUs y precios (API Key de cliente)
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/brands', brandRoutes);
 app.use('/api/v1/categories', categoryRoutes);
