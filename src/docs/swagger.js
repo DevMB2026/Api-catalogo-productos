@@ -24,21 +24,81 @@ const definition = {
     description:
       'API centralizada de catálogo de productos multi-marca y multi-sitio.\n\n' +
       'Lectura pública; la escritura requiere token JWT de administrador ' +
-      '(botón **Authorize** con el token de `POST /auth/login`).'
+      '(botón **Authorize** con el token de `POST /auth/login`).\n\n' +
+      '**Clientes con precios:** la sección *Clientes* usa una API Key de cliente ' +
+      '(`cli_…`, header `X-API-Key`) que genera el administrador en *Usuarios de precios*. ' +
+      'Devuelve el catálogo con SKUs y solo los niveles de precio permitidos a ese cliente.'
   },
   servers: [{ url: '/api/v1', description: 'Base v1' }],
   tags: [
     { name: 'Auth', description: 'Autenticación de administrador' },
     { name: 'Products', description: 'Catálogo de productos' },
     { name: 'Brands', description: 'Marcas / sitios' },
-    { name: 'Categories', description: 'Categorías y subcategorías' }
+    { name: 'Categories', description: 'Categorías y subcategorías' },
+    { name: 'Clientes', description: 'Catálogo con SKUs y precios para clientes con API Key (`cli_…`)' }
   ],
   components: {
     securitySchemes: {
-      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      clientApiKey: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-API-Key',
+        description: 'API Key de cliente (`cli_…`). La genera el administrador en Usuarios de precios; se muestra una sola vez.'
+      }
     },
     schemas: {
       Error: errorSchema,
+      ClienteSku: {
+        type: 'object',
+        properties: {
+          sku: { type: 'string', example: 'CAMPPRZM65CLPOAAZLXC' },
+          genero: { type: 'string', enum: ['Dama', 'Caballero', 'Unisex'], example: 'Caballero' }
+        }
+      },
+      ClienteVariante: {
+        type: 'object',
+        properties: {
+          color: { type: 'string', nullable: true, example: 'Azul Claro' },
+          talla: { type: 'string', nullable: true, example: 'XCH' },
+          skuInterno: { type: 'string', example: 'TBLUAMAL-TCAMAMAL-AZUL-CLARO-XCH' },
+          skus: { type: 'array', description: 'SKUs del ERP de la variante (uno por género en productos dama+caballero).', items: { $ref: '#/components/schemas/ClienteSku' } }
+        }
+      },
+      ClienteProducto: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string', example: '6a7decbd3d905ef7b12aab1b' },
+          nombre: { type: 'string', example: 'CAMISA AMALFI' },
+          slug: { type: 'string', example: 'camisa-amalfi' },
+          sku: { type: 'string', example: 'TBLUAMAL-TCAMAMAL' },
+          marca: { type: 'object', properties: { nombre: { type: 'string', example: 'Prezenza' }, slug: { type: 'string', example: 'prezenza' } } },
+          categoria: { type: 'object', nullable: true, properties: { nombre: { type: 'string', example: 'Camisas' }, slug: { type: 'string', example: 'camisas' } } },
+          genero: { type: 'array', items: { type: 'string' }, example: ['Dama', 'Caballero'] },
+          imagen: { type: 'string', nullable: true, description: 'URL de la imagen principal' },
+          precios: {
+            type: 'object',
+            description: 'SOLO los niveles que el cliente tiene permitidos (menudeo, mayoreo, volumen, distribuidor, master). `null` = nivel permitido pero aún sin precio capturado.',
+            additionalProperties: { type: 'number', nullable: true },
+            example: { menudeo: 315, master: 258 }
+          },
+          rangos: { type: 'object', description: 'Rango de piezas de cada nivel según la marca.', additionalProperties: { type: 'string' }, example: { menudeo: '1–30 pzas', master: 'precio especial' } },
+          moneda: { type: 'string', example: 'MXN' },
+          iva: { type: 'string', example: 'no incluido (precio + IVA)' },
+          variantes: { type: 'array', description: 'Ordenadas por color y talla (XCH … 5XG).', items: { $ref: '#/components/schemas/ClienteVariante' } },
+          actualizado: { type: 'string', format: 'date-time' }
+        }
+      },
+      ClienteProductoBaja: {
+        type: 'object',
+        description: 'Producto desactivado (solo en /changes): quitarlo del sistema local.',
+        properties: {
+          _id: { type: 'string' },
+          sku: { type: 'string' },
+          activo: { type: 'boolean', example: false },
+          actualizado: { type: 'string', format: 'date-time' }
+        }
+      },
       Image: {
         type: 'object',
         properties: {
@@ -420,6 +480,119 @@ const definition = {
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { 200: { description: 'OK' }, 401: { $ref: '#/components/responses/Unauthorized' }, 404: { $ref: '#/components/responses/NotFound' } }
+      }
+    },
+
+    // ---------------- Clientes (API Key de cliente) ----------------
+    '/clientes/productos': {
+      get: {
+        tags: ['Clientes'],
+        summary: 'Catálogo con SKUs y precios del cliente (paginado)',
+        description: 'Productos activos, ordenados por nombre. Cada producto trae sus variantes con SKUs y solo los niveles de precio permitidos al cliente.',
+        security: [{ clientApiKey: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20, maximum: 100 } },
+          { name: 'brand', in: 'query', schema: { type: 'string', example: 'prezenza' }, description: 'Slug de marca: prezenza, fitbefresh, befreshsecurity' },
+          { name: 'q', in: 'query', schema: { type: 'string' }, description: 'Búsqueda de texto (nombre, descripción, SKU)' }
+        ],
+        responses: {
+          200: {
+            description: 'OK',
+            content: { 'application/json': { schema: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean', example: true },
+                data: { type: 'array', items: { $ref: '#/components/schemas/ClienteProducto' } },
+                pagination: { type: 'object', properties: { page: { type: 'integer' }, limit: { type: 'integer' }, total: { type: 'integer' }, totalPages: { type: 'integer' } } }
+              }
+            } } }
+          },
+          401: { description: 'Falta la API Key, es inválida, fue revocada o la cuenta está desactivada (API_KEY_REQUIRED / API_KEY_INVALID)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          403: { description: 'La cuenta no tiene niveles de precio asignados (NO_PRICE_ACCESS)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          429: { description: 'Demasiadas peticiones (RATE_LIMITED): 300 cada 15 minutos', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } }
+        }
+      }
+    },
+    '/clientes/productos/changes': {
+      get: {
+        tags: ['Clientes'],
+        summary: 'Cambios desde una fecha (para sincronizar)',
+        description:
+          'Devuelve los productos que cambiaron desde `since`: cambios del producto, de su precio o de los permisos del cliente ' +
+          '(en ese caso se devuelve todo el catálogo con `resincronizacionCompleta: true`). ' +
+          'Los productos desactivados salen como `{ _id, sku, activo: false }` para quitarlos.\n\n' +
+          '**Cómo sincronizar:** la primera vez llamar sin `since` (catálogo completo). Guardar `serverTime` y usarlo como `since` en la siguiente llamada. ' +
+          'Si `hayMas` es `true`, volver a llamar enseguida con el `serverTime` recibido.',
+        security: [{ clientApiKey: [] }],
+        parameters: [
+          { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Fecha ISO del último `serverTime` recibido. Sin él = catálogo completo.' },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 200, maximum: 200 } }
+        ],
+        responses: {
+          200: {
+            description: 'OK',
+            content: { 'application/json': { schema: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean', example: true },
+                data: { type: 'array', items: { oneOf: [
+                  { allOf: [{ $ref: '#/components/schemas/ClienteProducto' }, { type: 'object', properties: { activo: { type: 'boolean', example: true } } }] },
+                  { $ref: '#/components/schemas/ClienteProductoBaja' }
+                ] } },
+                serverTime: { type: 'string', format: 'date-time', description: 'Usar como `since` en la siguiente llamada' },
+                hayMas: { type: 'boolean', description: 'true = hay más cambios; llamar de nuevo enseguida' },
+                resincronizacionCompleta: { type: 'boolean', description: 'Presente si cambiaron los permisos del cliente: reemplazar todos los precios guardados' }
+              }
+            } } }
+          },
+          400: { description: '`since` no es una fecha válida (INVALID_SINCE)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'API Key faltante o inválida', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } }
+        }
+      }
+    },
+    '/clientes/productos/sku/{sku}': {
+      get: {
+        tags: ['Clientes'],
+        summary: 'Buscar producto por SKU',
+        description: 'Acepta SKU del ERP de una variante, SKU del producto, alias o SKU de línea dama/caballero (sin distinguir mayúsculas). Si el SKU es de una variante, `varianteEncontrada` indica color, talla y género.',
+        security: [{ clientApiKey: [] }],
+        parameters: [{ name: 'sku', in: 'path', required: true, schema: { type: 'string', example: 'CHMPPRFM56DXPOLNGOCGD' } }],
+        responses: {
+          200: {
+            description: 'OK',
+            content: { 'application/json': { schema: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean', example: true },
+                data: { $ref: '#/components/schemas/ClienteProducto' },
+                varianteEncontrada: { type: 'object', properties: {
+                  color: { type: 'string', example: 'Negro Continental' },
+                  talla: { type: 'string', example: 'G' },
+                  sku: { type: 'string', example: 'CHMPPRFM56DXPOLNGOCGD' },
+                  genero: { type: 'string', example: 'Unisex' }
+                } }
+              }
+            } } }
+          },
+          401: { description: 'API Key faltante o inválida', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          404: { $ref: '#/components/responses/NotFound' }
+        }
+      }
+    },
+    '/clientes/productos/{id}': {
+      get: {
+        tags: ['Clientes'],
+        summary: 'Un producto por ID',
+        description: 'Solo productos activos (uno desactivado responde 404).',
+        security: [{ clientApiKey: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', example: '6a7decbd3d905ef7b12aab1b' } }],
+        responses: {
+          200: { description: 'OK', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean', example: true }, data: { $ref: '#/components/schemas/ClienteProducto' } } } } } },
+          400: { description: 'ID inválido (INVALID_ID)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'API Key faltante o inválida', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          404: { $ref: '#/components/responses/NotFound' }
+        }
       }
     }
   }
