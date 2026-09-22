@@ -13,8 +13,17 @@ const asyncHandler = require('../utils/asyncHandler');
 // Contraseña aleatoria de alta entropía (CSPRNG), igual que las API Key de
 // distribuidor: se genera en el servidor, nunca se acepta por la API en
 // texto plano, y se devuelve UNA SOLA VEZ en la respuesta de create/reset.
+//
+// 8 caracteres (pedido del negocio: fácil de dictar/teclear). Sin caracteres
+// que se confunden entre sí (0/O, 1/l/I). crypto.randomInt: sin sesgo. Con
+// 56 símbolos son ~46 bits; el login tiene rate-limit (authLimiter), así que
+// adivinarla por fuerza bruta no es práctico.
+const PASSWORD_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+const PASSWORD_LENGTH = 8;
 function generatePassword() {
-  return crypto.randomBytes(16).toString('hex');
+  let out = '';
+  for (let i = 0; i < PASSWORD_LENGTH; i++) out += PASSWORD_CHARS[crypto.randomInt(PASSWORD_CHARS.length)];
+  return out;
 }
 
 // Nunca incluye password (select:false en el modelo ya lo excluye por
