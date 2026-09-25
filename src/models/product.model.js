@@ -101,6 +101,12 @@ const productSchema = new Schema({
   badges: [oid('Badge')], // etiquetas promocionales (New Arrival, Últimas piezas…)
   options: { type: [productOptionSchema], default: [] }, // ejes + valores disponibles
   variants: { type: [variantSchema], default: [] }, // combinaciones generadas
+  // Valores de opción (ej. colores) que el producto TIENE pero que por ahora no
+  // se muestran: las lecturas públicas, de distribuidor y de clientes los
+  // quitan de options, de variants (con sus SKUs) y de media. Los datos no se
+  // borran; solo el panel de admin los ve (?incluirOcultos=true con token de
+  // admin), para que al guardar no se pierdan. Ver utils/valoresOcultos.js.
+  valoresOcultos: [oid('OptionValue')],
 
   sizeChart: oid('SizeChart'), // tabla reutilizable (opcional) — usada cuando el producto no necesita distinguir por género
   // Para productos que combinan hombre+mujer con cortes/medidas distintos: si

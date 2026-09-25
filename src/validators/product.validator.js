@@ -73,6 +73,7 @@ const productCreateSchema = z.object({
   badges: z.array(mongoId).optional(),
   options: z.array(productOptionInput).optional(),
   variants: z.array(variantInput).optional(),
+  valoresOcultos: z.array(mongoId).optional(), // colores/valores ocultos al público
   sizeChart: mongoId.nullable().optional(), // null explícito = quitar la tabla asignada
   sizeChartHombre: mongoId.nullable().optional(),
   sizeChartMujer: mongoId.nullable().optional(),

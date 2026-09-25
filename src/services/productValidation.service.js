@@ -117,6 +117,13 @@ async function validateProductDynamic(body, { partial = false } = {}) {
     }
   }
 
+  // --- Valores ocultos: solo pueden ser valores declarados en options ---
+  if (body.valoresOcultos != null && body.options != null) {
+    for (const vid of body.valoresOcultos) {
+      if (!optionValueOwner.has(String(vid))) addErr('valoresOcultos', 'Un valor oculto no está entre los valores del producto');
+    }
+  }
+
   // --- Variants (combinaciones) ---
   if (body.variants != null) {
     const skus = new Set();

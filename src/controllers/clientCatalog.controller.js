@@ -23,7 +23,7 @@ function preciosPermitidos(priceDoc, permitidos) {
 }
 
 const conRefs = (query) => query
-  .select('nombre slug sku brand category sexo media options variants updatedAt activo')
+  .select('nombre slug sku brand category sexo media options variants valoresOcultos updatedAt activo')
   .populate('brand', 'nombre slug')
   .populate('category', 'nombre slug')
   .lean();
@@ -52,8 +52,11 @@ function shapeProducto(p, priceDoc, permitidos, ovs, colorOptionIds) {
   const rangos = {};
   for (const tipo of Object.keys(precios)) if (rangosMarca[tipo]) rangos[tipo] = rangosMarca[tipo];
 
+  // Colores/valores ocultos (Product.valoresOcultos): sus variantes y SKUs no salen.
+  const ocultos = new Set((p.valoresOcultos || []).map(id));
   const variantes = (p.variants || [])
     .filter((v) => v.activo !== false)
+    .filter((v) => !(v.optionValues || []).some((x) => ocultos.has(id(x))))
     .map((v) => {
       const vals = (v.optionValues || []).map((x) => ovs.get(id(x))).filter(Boolean);
       const color = vals.find((o) => colorOptionIds.has(String(o.option)));
@@ -69,7 +72,8 @@ function shapeProducto(p, priceDoc, permitidos, ovs, colorOptionIds) {
     .sort((a, b) => a._orden[0] - b._orden[0] || a._orden[1] - b._orden[1])
     .map(({ _orden, ...v }) => v);
 
-  const principal = (p.media || []).find((m) => m.principal) || (p.media || [])[0];
+  const fotos = (p.media || []).filter((m) => !m.optionValue || !ocultos.has(id(m.optionValue)));
+  const principal = fotos.find((m) => m.principal) || fotos[0];
   return {
     _id: p._id,
     nombre: p.nombre,
@@ -130,6 +134,11 @@ exports.getBySku = asyncHandler(async (req, res) => {
     $or: [{ sku }, { 'skuAliases.sku': sku }, { skuHombre: sku }, { skuMujer: sku }, { 'variants.skusErp.sku': sku }]
   }));
   if (!p) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+  // El SKU de una variante de un color oculto no existe para el cliente.
+  const ocultos = new Set((p.valoresOcultos || []).map(String));
+  const deOculto = (p.variants || []).some((x) => (x.skusErp || []).some((e) => e.sku === sku)
+    && (x.optionValues || []).some((ov) => ocultos.has(String(ov))));
+  if (deOculto) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
   const [data] = await armar([p], req.cliente.pricePermissions);
   const v = data.variantes.find((x) => x.skus.some((e) => e.sku === sku));
   res.json({

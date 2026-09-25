@@ -8,6 +8,7 @@ const { generateUniqueSlug } = require('../utils/slug');
 const { uploadBuffer, destroy, ensureConfigured } = require('../services/cloudinary.service');
 const { validateProductDynamic } = require('../services/productValidation.service');
 const { notificarEventoProducto, dispararWebhookSiAplica } = require('../services/notification.service');
+const { quitarValoresOcultos, puedeVerOcultos, idDe } = require('../utils/valoresOcultos');
 
 // Suma el stock de todas las variantes — "sin stock" = 0 en todas.
 function stockTotal(product) {
@@ -118,6 +119,34 @@ const withRefsLite = (query) => query
   .populate('category', 'nombre slug')
   .populate('badges', 'nombre slug');
 
+// Devuelve el id de una categoría + TODOS sus descendientes (subcategorías,
+// sub-subcategorías…). Sin esto, filtrar por una categoría padre (ej.
+// "Playeras") solo encontraba los productos puestos ahí exacto, dejando
+// fuera los que quedaron en una subcategoría más específica (ej. "Playera
+// Cotton", "Playera Polo") aunque para el negocio sí son "de Playeras".
+// La colección de categorías es chica (decenas de docs), así que traerla
+// completa por request es más simple que mantener un árbol en memoria.
+async function categoryIdsWithDescendants(rootId) {
+  const all = await Category.find({}, '_id parent');
+  const childrenOf = new Map();
+  for (const c of all) {
+    if (!c.parent) continue;
+    const p = c.parent.toString();
+    if (!childrenOf.has(p)) childrenOf.set(p, []);
+    childrenOf.get(p).push(c._id);
+  }
+  const ids = [rootId];
+  const queue = [rootId.toString()];
+  while (queue.length) {
+    const id = queue.pop();
+    for (const childId of childrenOf.get(id) || []) {
+      ids.push(childId);
+      queue.push(childId.toString());
+    }
+  }
+  return ids;
+}
+
 // Arma el filtro de Mongo compartido por list() y changes(): resuelve activo,
 // scope de catálogo (distribuidor o ?catalogo=), y el resto de los filtros de
 // query. `includeInactive` es para changes(), que necesita ver también los
@@ -167,7 +196,7 @@ async function buildProductFiltro(req, { includeInactive = false } = {}) {
   }
   if (category) {
     const c = await Category.findOne({ slug: category.toLowerCase() }).select('_id');
-    filtro.category = c ? c._id : null;
+    filtro.category = c ? { $in: await categoryIdsWithDescendants(c._id) } : null;
   }
   if (sexo) filtro.sexo = sexo;
   if (destacado !== undefined) filtro.destacado = destacado === 'true';
@@ -182,6 +211,7 @@ async function buildProductFiltro(req, { includeInactive = false } = {}) {
 exports.list = asyncHandler(async (req, res) => {
   const { q } = req.query;
   const filtro = await buildProductFiltro(req);
+  const verOcultos = await puedeVerOcultos(req);
 
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
@@ -228,7 +258,7 @@ exports.list = asyncHandler(async (req, res) => {
     ]);
     return res.json({
       success: true,
-      data,
+      data: verOcultos ? data : data.map(quitarValoresOcultos),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
     });
   }
@@ -240,7 +270,7 @@ exports.list = asyncHandler(async (req, res) => {
   const [data, total] = await Promise.all([query, Product.countDocuments(filtro)]);
   res.json({
     success: true,
-    data,
+    data: verOcultos ? data : data.map(quitarValoresOcultos),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
   });
 });
@@ -272,29 +302,33 @@ exports.changes = asyncHandler(async (req, res) => {
 
   const filtro = await buildProductFiltro(req, { includeInactive: true });
   filtro.updatedAt = { $gt: since };
+  const verOcultos = await puedeVerOcultos(req);
 
   const data = await withRefs(Product.find(filtro))
     .sort({ updatedAt: 1 })
     .limit(CHANGES_LIMIT);
 
-  res.json({ success: true, data, serverTime: serverTime.toISOString() });
+  res.json({ success: true, data: verOcultos ? data : data.map(quitarValoresOcultos), serverTime: serverTime.toISOString() });
 });
 
 exports.getById = asyncHandler(async (req, res) => {
+  const verOcultos = await puedeVerOcultos(req);
   const product = await withRefs(Product.findById(req.params.id));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
   await enforceDistribuidorCatalogOrThrow(product, req);
-  res.json({ success: true, data: product });
+  res.json({ success: true, data: verOcultos ? product : quitarValoresOcultos(product) });
 });
 
 exports.getBySlug = asyncHandler(async (req, res) => {
+  const verOcultos = await puedeVerOcultos(req);
   const product = await withRefs(Product.findOne({ slug: req.params.slug.toLowerCase() }));
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
   await enforceDistribuidorCatalogOrThrow(product, req);
-  res.json({ success: true, data: product });
+  res.json({ success: true, data: verOcultos ? product : quitarValoresOcultos(product) });
 });
 
 exports.getBySku = asyncHandler(async (req, res) => {
+  const verOcultos = await puedeVerOcultos(req);
   const sku = req.params.sku.toUpperCase();
   // Matchea el SKU principal, cualquier alias (SKU secundario de otro
   // sitio/marca), el SKU de línea dama/caballero (independiente de los alias)
@@ -307,9 +341,14 @@ exports.getBySku = asyncHandler(async (req, res) => {
   // Si el SKU era de una variante, indica cuál (y el sexo de ese SKU) para no
   // obligar al cliente a recorrer product.variants.
   const matchedVariant = product.variants.find((v) => (v.skusErp || []).some((e) => e.sku === sku));
+  // El SKU de una variante de un color oculto no existe para el público.
+  const ocultos = new Set((product.valoresOcultos || []).map(idDe));
+  if (!verOcultos && matchedVariant && (matchedVariant.optionValues || []).some((ov) => ocultos.has(idDe(ov)))) {
+    throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+  }
   res.json({
     success: true,
-    data: product,
+    data: verOcultos ? product : quitarValoresOcultos(product),
     ...(matchedVariant && {
       matchedVariant: { _id: matchedVariant._id, sku: matchedVariant.sku, sexo: matchedVariant.skusErp.find((e) => e.sku === sku).sexo }
     })
@@ -334,6 +373,15 @@ exports.create = asyncHandler(async (req, res) => {
 exports.update = asyncHandler(async (req, res) => {
   const existing = await Product.findById(req.params.id);
   if (!existing) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
+
+  // Si cambian los valores de options y el caller no manda valoresOcultos,
+  // se quitan de la lista los que ya no existan en el producto (p. ej. el
+  // admin quitó ese color) — si no, la validación rechazaría el guardado.
+  if (req.body.options && !req.body.valoresOcultos && (existing.valoresOcultos || []).length) {
+    const declarados = new Set(req.body.options.flatMap((o) => (o.values || []).map(String)));
+    const vigentes = existing.valoresOcultos.filter((v) => declarados.has(String(v)));
+    if (vigentes.length !== existing.valoresOcultos.length) req.body.valoresOcultos = vigentes;
+  }
 
   const merged = { ...existing.toObject(), ...req.body };
   await validateProductDynamic(merged, { partial: false });
