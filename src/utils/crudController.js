@@ -1,6 +1,7 @@
 const AppError = require('./AppError');
 const asyncHandler = require('./asyncHandler');
 const { generateUniqueSlug } = require('./slug');
+const { avisarProductosDe } = require('../services/productosAfectados.service');
 
 // Fábrica de controladores CRUD estándar para las colecciones simples del PIM
 // (atributos, features, applications, options, option-values, size-charts).
@@ -12,8 +13,10 @@ const { generateUniqueSlug } = require('./slug');
 //   populate  arg de populate para las lecturas
 //   sort      orden de la lista (default { createdAt: -1 })
 //   filters   campos de query permitidos como filtro exacto (ej. ['option'])
+//   afecta    tipo para marcar como cambiados los productos que usan el
+//             documento al editarlo/desactivarlo (ver productosAfectados.service)
 module.exports = function crudController(Model, opts = {}) {
-  const { code = 'RESOURCE', slugFrom, populate, sort = { createdAt: -1 }, filters = [] } = opts;
+  const { code = 'RESOURCE', slugFrom, populate, sort = { createdAt: -1 }, filters = [], afecta } = opts;
   const notFound = () => new AppError(404, `${code}_NOT_FOUND`, 'Recurso no encontrado');
   const withPop = (q) => (populate ? q.populate(populate) : q);
 
@@ -50,6 +53,7 @@ module.exports = function crudController(Model, opts = {}) {
     }
     const updated = await Model.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true });
     if (!updated) throw notFound();
+    if (afecta) avisarProductosDe(afecta, updated._id);
     const doc = await withPop(Model.findById(updated._id));
     res.json({ success: true, data: doc });
   });
@@ -58,6 +62,7 @@ module.exports = function crudController(Model, opts = {}) {
   const remove = asyncHandler(async (req, res) => {
     const doc = await Model.findByIdAndUpdate(req.params.id, { activo: false }, { new: true });
     if (!doc) throw notFound();
+    if (afecta) avisarProductosDe(afecta, doc._id);
     res.json({ success: true, message: 'Recurso desactivado', data: { _id: doc._id, activo: doc.activo } });
   });
 

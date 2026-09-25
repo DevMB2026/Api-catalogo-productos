@@ -1,6 +1,7 @@
 const Brand = require('../models/brand.model');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
+const { avisarProductosDe } = require('../services/productosAfectados.service');
 const { generateUniqueSlug } = require('../utils/slug');
 
 // GET /api/v1/brands
@@ -34,6 +35,7 @@ exports.update = asyncHandler(async (req, res) => {
   if (updates.nombre && !updates.slug) updates.slug = await generateUniqueSlug(Brand, updates.nombre, req.params.id);
   const brand = await Brand.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   if (!brand) throw new AppError(404, 'BRAND_NOT_FOUND', 'Marca no encontrada');
+  avisarProductosDe('brand', brand._id); // su nombre sale en los productos: avisar a quien sincroniza
   res.json({ success: true, data: brand });
 });
 

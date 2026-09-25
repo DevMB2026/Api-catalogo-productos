@@ -475,6 +475,7 @@ exports.addImages = asyncHandler(async (req, res) => {
   }
 
   await product.save();
+  dispararWebhook(product, 'actualizado'); // fotos: avisar a los distribuidores
   const full = await withRefs(Product.findById(product._id));
   res.status(201).json({ success: true, data: full });
 });
@@ -506,6 +507,7 @@ exports.removeImage = asyncHandler(async (req, res) => {
   try { await destroy(publicId); } catch { console.warn('No se pudo borrar en Cloudinary:', publicId); }
 
   await product.save();
+  dispararWebhook(product, 'actualizado'); // fotos: avisar a los distribuidores
   const full = await withRefs(Product.findById(product._id));
   res.json({ success: true, data: full });
 });
@@ -541,6 +543,7 @@ exports.updateImageMeta = asyncHandler(async (req, res) => {
   }
 
   await product.save();
+  dispararWebhook(product, 'actualizado'); // fotos: avisar a los distribuidores
   const full = await withRefs(Product.findById(product._id));
   res.json({ success: true, data: full });
 });
@@ -576,6 +579,7 @@ exports.reorderImages = asyncHandler(async (req, res) => {
   product.media = mediaArr;
 
   await product.save();
+  dispararWebhook(product, 'actualizado'); // fotos: avisar a los distribuidores
   const full = await withRefs(Product.findById(product._id));
   res.json({ success: true, data: full });
 });

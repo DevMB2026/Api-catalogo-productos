@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const Product = require('../src/models/product.model');
+const { dispararWebhookSiAplica } = require('../src/services/notification.service');
 require('../src/models/option.model');
 require('../src/models/optionValue.model');
 
@@ -27,6 +28,7 @@ const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 async function rollback(archivo) {
   const b = JSON.parse(fs.readFileSync(archivo, 'utf8'));
   const r = await Product.updateOne({ _id: b._id }, { $set: { valoresOcultos: b.valoresOcultos } });
+  await dispararWebhookSiAplica({ _id: b._id, updatedAt: new Date() }, 'actualizado');
   console.log(`Restaurado ${b.nombre}: valoresOcultos = ${JSON.stringify(b.valoresOcultos)} (modificados: ${r.modifiedCount})`);
 }
 
@@ -66,6 +68,7 @@ async function rollback(archivo) {
   console.log(`Respaldo: ${archivo}`);
 
   const r = await Product.updateOne({ _id: p._id }, { $set: { valoresOcultos: despues } });
+  await dispararWebhookSiAplica({ _id: p._id, updatedAt: new Date() }, 'actualizado'); // avisar a distribuidores con webhook
   console.log(`Escrito (modificados: ${r.modifiedCount}). Para revertir: node scripts/ocultar-valores.js --rollback "${archivo}"`);
   await mongoose.disconnect();
 })().catch(async (e) => { console.error('ERROR:', e.message); await mongoose.disconnect(); process.exit(1); });

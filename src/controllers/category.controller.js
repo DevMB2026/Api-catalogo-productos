@@ -1,6 +1,7 @@
 const Category = require('../models/category.model');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
+const { avisarProductosDe } = require('../services/productosAfectados.service');
 const { generateUniqueSlug } = require('../utils/slug');
 const { resolveAttributeSchema } = require('../services/attributeSchema.service');
 
@@ -38,6 +39,7 @@ exports.update = asyncHandler(async (req, res) => {
   if (updates.nombre && !updates.slug) updates.slug = await generateUniqueSlug(Category, updates.nombre, req.params.id);
   const category = await Category.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   if (!category) throw new AppError(404, 'CATEGORY_NOT_FOUND', 'Categoría no encontrada');
+  avisarProductosDe('category', category._id); // su nombre sale en los productos: avisar a quien sincroniza
   res.json({ success: true, data: category });
 });
 
