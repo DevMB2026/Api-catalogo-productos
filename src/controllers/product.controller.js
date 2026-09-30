@@ -228,6 +228,10 @@ exports.list = asyncHandler(async (req, res) => {
       sort[part.replace(/^-/, '')] = part.startsWith('-') ? -1 : 1;
     }
   }
+  // Desempate por _id: sin él, productos con el mismo createdAt (ej. creados
+  // en lote por un script) pueden repetirse en una página y faltar en otra al
+  // paginar con skip/limit — y el panel admin dejaría de ver alguno.
+  if (!q && !('_id' in sort)) sort._id = -1;
 
   // sort=brandOrden agrupa el listado por el `orden` de la marca (ver
   // Brand.orden) y, dentro de cada marca, por el `orden` de la categoría (ver
@@ -245,7 +249,7 @@ exports.list = asyncHandler(async (req, res) => {
         { $unwind: { path: '$_brand', preserveNullAndEmptyArrays: true } },
         { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: '_category' } },
         { $unwind: { path: '$_category', preserveNullAndEmptyArrays: true } },
-        { $sort: { '_brand.orden': dir, '_category.orden': 1, createdAt: -1 } },
+        { $sort: { '_brand.orden': dir, '_category.orden': 1, createdAt: -1, _id: -1 } },
         { $skip: skip },
         { $limit: limit },
         { $project: { _brand: 0, _category: 0 } }
