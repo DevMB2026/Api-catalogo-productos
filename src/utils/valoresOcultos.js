@@ -20,6 +20,8 @@ function quitarValoresOcultos(product) {
   if (ocultos.size === 0) return p;
 
   const visible = (v) => !ocultos.has(idDe(v));
+  // Un color oculto no puede anunciarse como "NEW".
+  if (Array.isArray(p.valoresNuevos)) p.valoresNuevos = p.valoresNuevos.filter(visible);
   if (Array.isArray(p.options)) {
     p.options = p.options.map((o) => ({ ...o, values: (o.values || []).filter(visible) }));
   }

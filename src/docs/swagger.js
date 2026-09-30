@@ -60,6 +60,7 @@ const definition = {
         type: 'object',
         properties: {
           color: { type: 'string', nullable: true, example: 'Azul Claro' },
+          colorNuevo: { type: 'boolean', example: false, description: 'true si el color está marcado como nuevo (etiqueta "NEW").' },
           talla: { type: 'string', nullable: true, example: 'XCH' },
           skuInterno: { type: 'string', example: 'TBLUAMAL-TCAMAMAL-AZUL-CLARO-XCH' },
           skus: { type: 'array', description: 'SKUs del ERP de la variante (uno por género en productos dama+caballero).', items: { $ref: '#/components/schemas/ClienteSku' } }

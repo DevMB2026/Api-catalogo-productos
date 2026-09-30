@@ -380,13 +380,17 @@ exports.update = asyncHandler(async (req, res) => {
   const existing = await Product.findById(req.params.id);
   if (!existing) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
 
-  // Si cambian los valores de options y el caller no manda valoresOcultos,
-  // se quitan de la lista los que ya no existan en el producto (p. ej. el
-  // admin quitó ese color) — si no, la validación rechazaría el guardado.
-  if (req.body.options && !req.body.valoresOcultos && (existing.valoresOcultos || []).length) {
+  // Si cambian los valores de options y el caller no manda valoresOcultos /
+  // valoresNuevos, se quitan de esas listas los que ya no existan en el
+  // producto (p. ej. el admin quitó ese color) — si no, la validación
+  // rechazaría el guardado.
+  if (req.body.options) {
     const declarados = new Set(req.body.options.flatMap((o) => (o.values || []).map(String)));
-    const vigentes = existing.valoresOcultos.filter((v) => declarados.has(String(v)));
-    if (vigentes.length !== existing.valoresOcultos.length) req.body.valoresOcultos = vigentes;
+    for (const campo of ['valoresOcultos', 'valoresNuevos']) {
+      if (req.body[campo] || !(existing[campo] || []).length) continue;
+      const vigentes = existing[campo].filter((v) => declarados.has(String(v)));
+      if (vigentes.length !== existing[campo].length) req.body[campo] = vigentes;
+    }
   }
 
   // `variants` reemplaza la lista completa: lo que el cliente no mandó

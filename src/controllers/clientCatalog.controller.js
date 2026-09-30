@@ -23,7 +23,7 @@ function preciosPermitidos(priceDoc, permitidos) {
 }
 
 const conRefs = (query) => query
-  .select('nombre slug sku brand category sexo media options variants valoresOcultos updatedAt activo')
+  .select('nombre slug sku brand category sexo media options variants valoresOcultos valoresNuevos updatedAt activo')
   .populate('brand', 'nombre slug')
   .populate('category', 'nombre slug')
   .lean();
@@ -54,6 +54,7 @@ function shapeProducto(p, priceDoc, permitidos, ovs, colorOptionIds) {
 
   // Colores/valores ocultos (Product.valoresOcultos): sus variantes y SKUs no salen.
   const ocultos = new Set((p.valoresOcultos || []).map(id));
+  const nuevos = new Set((p.valoresNuevos || []).map(id)); // colores con etiqueta "NEW"
   const variantes = (p.variants || [])
     .filter((v) => v.activo !== false)
     .filter((v) => !(v.optionValues || []).some((x) => ocultos.has(id(x))))
@@ -63,6 +64,7 @@ function shapeProducto(p, priceDoc, permitidos, ovs, colorOptionIds) {
       const talla = vals.find((o) => o !== color);
       return {
         color: color?.valor ?? null,
+        colorNuevo: color ? nuevos.has(id(color)) : false,
         talla: talla?.valor ?? null,
         skuInterno: v.sku,
         skus: (v.skusErp || []).map((e) => ({ sku: e.sku, genero: SEXO[e.sexo] || e.sexo })),

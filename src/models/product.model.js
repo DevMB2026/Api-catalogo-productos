@@ -107,6 +107,10 @@ const productSchema = new Schema({
   // borran; solo el panel de admin los ve (?incluirOcultos=true con token de
   // admin), para que al guardar no se pierdan. Ver utils/valoresOcultos.js.
   valoresOcultos: [oid('OptionValue')],
+  // Valores de opción (ej. el color Anaranjado recién agregado) marcados como
+  // NUEVOS: las fichas pintan una etiqueta "NEW" sobre ese color. Es solo una
+  // marca visual; la etiqueta "New Arrival" del producto va aparte (badges).
+  valoresNuevos: [oid('OptionValue')],
 
   sizeChart: oid('SizeChart'), // tabla reutilizable (opcional) — usada cuando el producto no necesita distinguir por género
   // Para productos que combinan hombre+mujer con cortes/medidas distintos: si

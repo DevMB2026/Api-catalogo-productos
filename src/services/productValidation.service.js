@@ -123,6 +123,11 @@ async function validateProductDynamic(body, { partial = false } = {}) {
       if (!optionValueOwner.has(String(vid))) addErr('valoresOcultos', 'Un valor oculto no está entre los valores del producto');
     }
   }
+  if (body.valoresNuevos != null && body.options != null) {
+    for (const vid of body.valoresNuevos) {
+      if (!optionValueOwner.has(String(vid))) addErr('valoresNuevos', 'Un valor marcado como nuevo no está entre los valores del producto');
+    }
+  }
 
   // --- Variants (combinaciones) ---
   if (body.variants != null) {
