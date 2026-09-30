@@ -35,7 +35,8 @@ const { EJSON } = mongoose.mongo.BSON;
 const WRITE = process.argv.includes('--write');
 const rbIdx = process.argv.indexOf('--rollback');
 const ROLLBACK = rbIdx > -1 ? process.argv[rbIdx + 1] : null;
-const PLAN = path.join(__dirname, '../data/skus-erp-carga-total.json');
+const planIdx = process.argv.indexOf('--plan'); // otro plan con el mismo formato (ej. data/skus-erp-gorra-campana.json)
+const PLAN = planIdx > -1 ? path.resolve(process.argv[planIdx + 1]) : path.join(__dirname, '../data/skus-erp-carga-total.json');
 const BACKUP_DIR = path.join(__dirname, '../data/backups');
 
 const up = (s) => String(s).toUpperCase();
