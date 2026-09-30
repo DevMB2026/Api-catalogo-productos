@@ -2,11 +2,13 @@ const Product = require('../models/product.model');
 const Brand = require('../models/brand.model');
 const Category = require('../models/category.model');
 const Catalog = require('../models/catalog.model');
+const Option = require('../models/option.model');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const { generateUniqueSlug } = require('../utils/slug');
 const { uploadBuffer, destroy, ensureConfigured } = require('../services/cloudinary.service');
 const { validateProductDynamic } = require('../services/productValidation.service');
+const { mergeVariants } = require('../services/variantMerge.service');
 const { notificarEventoProducto, dispararWebhookSiAplica } = require('../services/notification.service');
 const { quitarValoresOcultos, puedeVerOcultos, idDe } = require('../utils/valoresOcultos');
 
@@ -381,6 +383,22 @@ exports.update = asyncHandler(async (req, res) => {
     const declarados = new Set(req.body.options.flatMap((o) => (o.values || []).map(String)));
     const vigentes = existing.valoresOcultos.filter((v) => declarados.has(String(v)));
     if (vigentes.length !== existing.valoresOcultos.length) req.body.valoresOcultos = vigentes;
+  }
+
+  // `variants` reemplaza la lista completa: lo que el cliente no mandó
+  // (_id, fotos, activo, composición…) se conserva de la misma variante, y
+  // las combinaciones nuevas heredan composición/stock (ver variantMerge).
+  if (Array.isArray(req.body.variants)) {
+    const optionIds = (req.body.options || existing.options || []).map((o) => o.option);
+    const colorOpts = await Option.find({
+      _id: { $in: optionIds },
+      $or: [{ tipo: 'swatch' }, { slug: /color/i }, { nombre: /color/i }]
+    }).select('_id');
+    const colorOptIds = new Set(colorOpts.map((o) => String(o._id)));
+    const colorIds = new Set((req.body.options || existing.options || [])
+      .filter((o) => colorOptIds.has(String(o.option)))
+      .flatMap((o) => (o.values || []).map(String)));
+    req.body.variants = mergeVariants(req.body.variants, existing.variants, colorIds);
   }
 
   const merged = { ...existing.toObject(), ...req.body };
