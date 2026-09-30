@@ -18,7 +18,10 @@ const mediaInput = z.object({
 const imageMetaUpdateSchema = z.object({
   public_id: z.string().min(1),
   sexo: z.enum(['hombre', 'mujer']).nullable().optional(),
-  optionValue: mongoId.nullable().optional()
+  optionValue: mongoId.nullable().optional(),
+  // Solo `true`: marca esta foto como portada y se la quita a las demás.
+  // (Quitar la portada sin elegir otra no tiene sentido: se usaría la primera.)
+  principal: z.literal(true).optional()
 });
 
 // PATCH /products/:id/images/order — lista completa de public_id de un

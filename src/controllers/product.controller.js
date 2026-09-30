@@ -513,13 +513,14 @@ exports.removeImage = asyncHandler(async (req, res) => {
 });
 
 // PATCH /api/v1/products/:id/images — actualiza metadata de una imagen ya
-// subida: "sexo" (a qué género se muestra) y/o "optionValue" (a qué color
+// subida: "sexo" (a qué género se muestra), "optionValue" (a qué color
 // pertenece — permite MOVER una foto de la galería general a un color, o
-// de un color a otro, sin volver a subirla). Solo toca los campos que
+// de un color a otro, sin volver a subirla) y/o "principal: true" (la
+// portada del producto en catálogos y tarjetas). Solo toca los campos que
 // vengan en el body. No sube ni borra nada — busca la imagen por public_id
 // en galería y en variantes, igual que removeImage.
 exports.updateImageMeta = asyncHandler(async (req, res) => {
-  const { public_id: publicId, sexo, optionValue } = req.body;
+  const { public_id: publicId, sexo, optionValue, principal } = req.body;
 
   const product = await Product.findById(req.params.id);
   if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
@@ -540,6 +541,13 @@ exports.updateImageMeta = asyncHandler(async (req, res) => {
       if (!declarado) throw new AppError(400, 'OPTION_VALUE_NOT_FOUND', 'El valor indicado no está declarado en las opciones del producto');
     }
     target.optionValue = optionValue || undefined;
+  }
+  if (principal === true) {
+    // Una sola portada por producto: se limpia en TODA la galería (general,
+    // por color y de variantes) antes de marcar la nueva.
+    for (const m of product.media) m.principal = false;
+    for (const variant of product.variants) for (const m of variant.media) m.principal = false;
+    target.principal = true;
   }
 
   await product.save();
