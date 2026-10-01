@@ -9,4 +9,6 @@ uploads/*
 .claude/
 
 # Artefactos de scraping/migración (regenerables, no versionar)
-data/
+data/*
+# …salvo las tablas de medidas (fuente de scripts/subir-tabla-medidas.js)
+!data/tablas/

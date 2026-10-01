@@ -1,0 +1,15 @@
+{
+  "nombre": "Sudadera Cat — medidas",
+  "unidad": "cm",
+  "columns": ["Ancho pecho", "Ancho ruedo", "Largo talle", "Largo manga"],
+  "rows": [
+    { "label": "XCH", "values": [53, 52, 66, 60] },
+    { "label": "CH",  "values": [55, 54, 68, 62] },
+    { "label": "M",   "values": [57, 57, 69, 62] },
+    { "label": "G",   "values": [59, 59, 70, 63] },
+    { "label": "XG",  "values": [62, 62, 71, 62] },
+    { "label": "2XG", "values": [65, 65, 72, 63] }
+  ],
+  "producto": "sudadera-cat",
+  "asignarComo": "general"
+}
