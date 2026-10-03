@@ -38,6 +38,14 @@ async function run() {
   await mongoose.connect(process.env.MONGO_URI);
 
   let user = await User.findOne({ email: email.toLowerCase() });
+  if (user && user.role !== 'admin') {
+    // Un cliente (usuario de precios) o distribuidor con ese correo: no se
+    // le cambia la contraseña "creyendo" que es admin — seguiría sin acceso
+    // al panel. Que se use otro correo, o que se decida a propósito.
+    console.error(`Ya existe una cuenta con ${user.email} pero su rol es "${user.role}", no admin. Usa otro correo.`);
+    await mongoose.disconnect();
+    process.exit(1);
+  }
   if (user) {
     user.password = password; // el pre('save') la re-hashea
     user.nombre = nombre;

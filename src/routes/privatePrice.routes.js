@@ -6,7 +6,8 @@ const c = require('../controllers/privatePrice.controller');
 
 // Namespace PRIVADO, separado a propósito de /api/v1/products (público) y de
 // /api/v1/distribuidores/productos (X-API-Key). Solo personas autenticadas
-// con usuario+contraseña (JWT) y con pricePermissions asignados llegan aquí.
+// con usuario+contraseña (JWT) y con pricePermissions asignados (o que sean
+// administradores, que ven todos los tipos) llegan aquí.
 router.get('/productos/:id', protect, requirePriceAccess, c.getProductPrices);
 
 module.exports = router;
