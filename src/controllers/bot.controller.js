@@ -4,6 +4,7 @@ const Brand = require('../models/brand.model');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { quitarValoresOcultos } = require('../utils/valoresOcultos');
+const { jpgUrl } = require('../services/storage.service'); // el bot manda copias JPG (WhatsApp no acepta WebP)
 
 // Ficha compacta de producto para el chatbot (OpenClaw / Prezi).
 //
@@ -71,13 +72,13 @@ function fotosDe(p, { color, sexo } = {}) {
   const coloresConFoto = [...porColor.keys()];
   const quiere = color ? sinAcentos(color) : null;
   if (!quiere) {
-    return { coloresConFoto, fotos: coloresConFoto.map((c) => ({ color: c, sexo: porColor.get(c)[0].sexo || null, url: porColor.get(c)[0].url })) };
+    return { coloresConFoto, fotos: coloresConFoto.map((c) => ({ color: c, sexo: porColor.get(c)[0].sexo || null, url: jpgUrl(porColor.get(c)[0].url) })) };
   }
   const elegido = coloresConFoto.find((c) => sinAcentos(c) === quiere) || coloresConFoto.find((c) => sinAcentos(c).includes(quiere));
   if (!elegido) return { coloresConFoto, fotos: [] };
   let lista = porColor.get(elegido);
   if (sexo) lista = lista.filter((m) => !m.sexo || m.sexo === sexo);
-  return { coloresConFoto, fotos: lista.slice(0, MAX_FOTOS_COLOR).map((m) => ({ color: elegido, sexo: m.sexo || null, url: m.url })) };
+  return { coloresConFoto, fotos: lista.slice(0, MAX_FOTOS_COLOR).map((m) => ({ color: elegido, sexo: m.sexo || null, url: jpgUrl(m.url) })) };
 }
 
 function armarFicha(raw, opts = {}) {

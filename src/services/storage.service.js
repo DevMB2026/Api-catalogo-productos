@@ -14,6 +14,7 @@ const AppError = require('../utils/AppError');
 const PROVIDER = (process.env.STORAGE_PROVIDER || 'cloudinary').toLowerCase();
 const MAX_SIDE = 1600;
 const WEBP_QUALITY = 82;
+const JPEG_QUALITY = 85;
 
 let client;
 function r2() {
@@ -43,7 +44,30 @@ function toWebp(buffer) {
     .toBuffer();
 }
 
+// Copia en JPG para los canales que no aceptan WebP como imagen (WhatsApp).
+// Fondo blanco: si la foto tiene transparencia, JPG la dibujaría en negro.
+function toJpeg(buffer) {
+  return sharp(buffer).rotate()
+    .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true })
+    .flatten({ background: '#ffffff' })
+    .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+    .toBuffer();
+}
+
 const publicUrl = (publicId) => `${process.env.R2_PUBLIC_URL.replace(/\/+$/, '')}/${publicId}.webp`;
+// Dirección de la copia JPG de una foto servida en .webp (otras URLs se dejan igual).
+const jpgUrl = (url) => (typeof url === 'string' ? url.replace(/\.webp$/i, '.jpg') : url);
+
+async function putJpg(publicId, buffer) {
+  const jpg = await toJpeg(buffer);
+  await r2().send(new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET,
+    Key: `${publicId}.jpg`,
+    Body: jpg,
+    ContentType: 'image/jpeg',
+    CacheControl: 'public, max-age=31536000, immutable'
+  }));
+}
 
 async function uploadBuffer(buffer, folder, options = {}) {
   if (PROVIDER !== 'r2') return cloudinaryService.uploadBuffer(buffer, folder, options);
@@ -56,12 +80,17 @@ async function uploadBuffer(buffer, folder, options = {}) {
     ContentType: 'image/webp',
     CacheControl: 'public, max-age=31536000, immutable'
   }));
+  // La copia JPG nunca debe impedir que la subida principal funcione.
+  try { await putJpg(publicId, buffer); } catch (e) { console.warn('[storage] no se pudo crear la copia JPG:', publicId, e.message); }
   return { secure_url: publicUrl(publicId), public_id: publicId, bytes: body.length };
 }
 
 async function destroy(publicId) {
   if (PROVIDER !== 'r2') return cloudinaryService.destroy(publicId);
-  return r2().send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET, Key: `${publicId}.webp` }));
+  const res = await r2().send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET, Key: `${publicId}.webp` }));
+  // Borra también la copia JPG (si no existe, no pasa nada).
+  await r2().send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET, Key: `${publicId}.jpg` })).catch(() => {});
+  return res;
 }
 
 function ensureConfigured() {
@@ -72,4 +101,4 @@ function ensureConfigured() {
   }
 }
 
-module.exports = { uploadBuffer, destroy, ensureConfigured, toWebp, r2, r2Configured, publicUrl, PROVIDER };
+module.exports = { uploadBuffer, destroy, ensureConfigured, toWebp, toJpeg, r2, r2Configured, publicUrl, jpgUrl, PROVIDER };
