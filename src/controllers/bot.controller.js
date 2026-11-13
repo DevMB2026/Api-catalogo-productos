@@ -50,7 +50,37 @@ function tablaMedidas(chart) {
   };
 }
 
-function armarFicha(raw) {
+const MAX_FOTOS_COLOR = 4;
+const sinAcentos = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+// Fotos del producto (ya sin colores ocultos). Cada foto está ligada a un color
+// (media.optionValue) y, opcionalmente, a un público (sexo: hombre/mujer).
+//  - Sin `color`: UNA foto por color (la primera por orden), para ver qué hay.
+//  - Con `color`: hasta MAX_FOTOS_COLOR fotos de ese color, ordenadas, filtrando por
+//    `sexo` si se pide (las fotos sin sexo sirven para cualquiera).
+function fotosDe(p, { color, sexo } = {}) {
+  const fotos = (p.media || [])
+    .filter((m) => m && m.url && m.optionValue && m.optionValue.valor)
+    .sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  const porColor = new Map();
+  for (const m of fotos) {
+    const c = m.optionValue.valor;
+    if (!porColor.has(c)) porColor.set(c, []);
+    porColor.get(c).push(m);
+  }
+  const coloresConFoto = [...porColor.keys()];
+  const quiere = color ? sinAcentos(color) : null;
+  if (!quiere) {
+    return { coloresConFoto, fotos: coloresConFoto.map((c) => ({ color: c, sexo: porColor.get(c)[0].sexo || null, url: porColor.get(c)[0].url })) };
+  }
+  const elegido = coloresConFoto.find((c) => sinAcentos(c) === quiere) || coloresConFoto.find((c) => sinAcentos(c).includes(quiere));
+  if (!elegido) return { coloresConFoto, fotos: [] };
+  let lista = porColor.get(elegido);
+  if (sexo) lista = lista.filter((m) => !m.sexo || m.sexo === sexo);
+  return { coloresConFoto, fotos: lista.slice(0, MAX_FOTOS_COLOR).map((m) => ({ color: elegido, sexo: m.sexo || null, url: m.url })) };
+}
+
+function armarFicha(raw, opts = {}) {
   const p = quitarValoresOcultos(raw); // quita colores/variantes ocultos
 
   // Ejes: color, talla y cualquier otro (en el pool de opciones del producto).
@@ -81,6 +111,8 @@ function armarFicha(raw) {
   };
   const hayMedidas = medidas.general || medidas.hombre || medidas.mujer;
 
+  const imagenes = opts.fotos ? fotosDe(p, opts) : null;
+
   return {
     nombre: p.nombre,
     marca: nom(p.brand),
@@ -96,7 +128,9 @@ function armarFicha(raw) {
     caracteristicas: (p.features || []).map(nom).filter(Boolean),
     personalizaciones: (p.applications || []).map(nom).filter(Boolean),
     tabla_de_medidas: hayMedidas ? medidas : null,
-    preguntas_frecuentes: (p.faq || []).slice(0, MAX_FAQ).map((f) => ({ pregunta: f.pregunta, respuesta: f.respuesta }))
+    preguntas_frecuentes: (p.faq || []).slice(0, MAX_FAQ).map((f) => ({ pregunta: f.pregunta, respuesta: f.respuesta })),
+    imagenes,
+    _pidioColor: opts.color || null
   };
 }
 
@@ -123,6 +157,19 @@ function aTexto(f) {
     L.push('Tabla de medidas: sin dato');
   }
   for (const q of f.preguntas_frecuentes) L.push(`P: ${q.pregunta} R: ${q.respuesta}`);
+  if (f.imagenes) {
+    const { coloresConFoto, fotos } = f.imagenes;
+    if (fotos.length === 0) {
+      L.push(f._pidioColor
+        ? `FOTOS: no hay fotos del color "${f._pidioColor}". Colores con foto: ${coloresConFoto.join(', ') || 'ninguno'}. Díselo al cliente; no mandes fotos de otro producto.`
+        : 'FOTOS: este producto no tiene fotos. No mandes imágenes; dile que una asesora se las comparte.');
+    } else {
+      L.push(f._pidioColor
+        ? `FOTOS del color ${fotos[0].color} (envía estas direcciones tal cual, sin cambiarlas):`
+        : 'FOTOS (una por color; para ver más de un color pide la ficha de nuevo con &color=NOMBRE; envía las direcciones tal cual):');
+      for (const x of fotos) L.push(`- ${x.color}${x.sexo ? ` (${x.sexo})` : ''}: ${x.url}`);
+    }
+  }
   return L.join('\n');
 }
 
@@ -138,7 +185,8 @@ const POPULATE = [
   { path: 'variants.optionValues', select: 'valor' },
   { path: 'sizeChart' },
   { path: 'sizeChartHombre' },
-  { path: 'sizeChartMujer' }
+  { path: 'sizeChartMujer' },
+  { path: 'media.optionValue', select: 'valor' } // color al que pertenece cada foto
 ];
 
 // GET /api/v1/bot/ficha?q=polo&marca=be-fresh&limit=3&formato=texto
@@ -187,7 +235,14 @@ exports.ficha = asyncHandler(async (req, res) => {
 });
 
 function respond(req, res, docs, aproximada = false) {
-  const fichas = docs.map(armarFicha);
+  // ?fotos=1 incluye las fotos; ?color=Negro filtra por color; ?sexo=hombre|mujer por público.
+  const sexoPedido = ['hombre', 'mujer'].includes(String(req.query.sexo || '').toLowerCase()) ? String(req.query.sexo).toLowerCase() : null;
+  const opts = {
+    fotos: req.query.fotos === '1' || req.query.fotos === 'true',
+    color: req.query.color ? String(req.query.color).slice(0, 40) : null,
+    sexo: sexoPedido
+  };
+  const fichas = docs.map((d) => armarFicha(d, opts));
   if (req.query.formato === 'texto') {
     const aviso = aproximada
       ? 'COINCIDENCIA APROXIMADA: no hay un producto con ese nombre exacto. Estos resultados son parecidos. Si el nombre del producto de abajo NO es el que pidió el cliente, no uses estos datos y dile que una asesora lo confirma.\n\n'
@@ -197,5 +252,5 @@ function respond(req, res, docs, aproximada = false) {
       : 'SIN RESULTADOS: no hay un producto con ese nombre en el catálogo. No inventes datos; dile al cliente que una asesora lo confirma.';
     return res.type('text/plain; charset=utf-8').send(out);
   }
-  return res.json({ success: true, total: fichas.length, aproximada, data: fichas });
+  return res.json({ success: true, total: fichas.length, aproximada, data: fichas.map(({ _pidioColor, ...resto }) => resto) });
 }
